@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Food Blip</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"/>
+
+  <!-- Firebase -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyATNHXHDRokeeiP6sjzPK1zUeAHKFrEYBQ",
+      authDomain: "foodblip-1a771.firebaseapp.com",
+      projectId: "foodblip-1a771",
+      storageBucket: "foodblip-1a771.firebasestorage.app",
+      messagingSenderId: "548159935659",
+      appId: "1:548159935659:web:884c7adbd4f354900953ee"
+    };
+
+    const firebaseApp = initializeApp(firebaseConfig);
+    const db = getFirestore(firebaseApp);
+    window._db = db;
+    window._doc = doc;
+    window._getDoc = getDoc;
+    window._setDoc = setDoc;
+    window._updateDoc = updateDoc;
+    window._increment = increment;
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f0f0f;
+      --card: #1a1a1a;
+      --border: #2a2a2a;
+      --accent: #ff6a00;
+      --accent2: #ff9a44;
+      --text: #f0f0f0;
+      --muted: #888;
+      --green: #4ade80;
+      --red: #f87171;
+      --yellow: #fbbf24;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      padding: 0 16px 80px;
+    }
+    header {
+      text-align: center;
+      padding: 48px 0 32px;
+    }
+    header h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: 3rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -1px;
+    }
+    header p { color: var(--muted); margin-top: 8px; font-size: 1rem; }
+
+    .search-box {
+      max-width: 640px;
+      margin: 0 auto 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .search-box input {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 18px;
+      color: var(--text);
+      font-size: 1rem;
+      font-family: 'DM Sans', sans-serif;
+      outline: none;
+      transition: border 0.2s;
+    }
+    .search-box input:focus { border-color: var(--accent); }
+    .search-box input::placeholder { color: var(--muted); }
+    .search-box button {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none;
+      border-radius: 12px;
+      padding: 14px;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      font-family: 'Syne', sans-serif;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .search-box button:hover { opacity: 0.88; }
+
+    #results {
+      max-width: 960px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .card:hover { transform: translateY(-4px); border-color: var(--accent); }
+
+    .card-photo {
+      width: 100%; height: 160px; object-fit: cover; background: var(--border);
+    }
+    .card-photo-placeholder {
+      width: 100%; height: 160px;
+      background: linear-gradient(135deg, #1f1f1f, #2a2a2a);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.5rem;
+    }
+
+    .card-body { padding: 16px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
+    .card-name { font-family: 'Syne', sans-serif; font-size: 1.05rem; font-weight: 700; line-height: 1.3; }
+    .card-address { color: var(--muted); font-size: 0.8rem; line-height: 1.4; }
+
+    .rating-row { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+    .stars { color: var(--accent); font-weight: 700; }
+    .review-count { color: var(--muted); font-size: 0.78rem; }
+
+    .distance-row { display: flex; align-items: center; gap: 6px; font-size: 0.83rem; color: var(--muted); }
+    .distance-row span { color: var(--text); font-weight: 500; }
+
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tag {
+      background: #222; border: 1px solid var(--border);
+      border-radius: 20px; padding: 3px 11px;
+      font-size: 0.76rem; color: var(--muted);
+    }
+    .tag.open { color: var(--green); border-color: var(--green); }
+    .tag.closed { color: var(--red); border-color: var(--red); }
+
+    /* Busy Gauge */
+    .busy-section { display: flex; flex-direction: column; gap: 6px; }
+    .busy-label-row { display: flex; justify-content: space-between; font-size: 0.8rem; }
+    .busy-label-row span:first-child { color: var(--muted); }
+    .busy-gauge-track {
+      width: 100%; height: 10px;
+      background: #2a2a2a; border-radius: 99px; overflow: hidden;
+    }
+    .busy-gauge-fill {
+      height: 100%; border-radius: 99px;
+      transition: width 1s ease;
+    }
+    .busy-quiet { background: var(--green); }
+    .busy-moderate { background: var(--yellow); }
+    .busy-fairly { background: #f97316; }
+    .busy-very { background: var(--red); }
+
+    /* Halaal Section */
+    .halaal-section {
+      background: #111;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .halaal-title { font-size: 0.8rem; color: var(--muted); }
+    .halaal-verdict {
+      font-size: 0.9rem; font-weight: 700;
+    }
+    .halaal-votes { font-size: 0.75rem; color: var(--muted); }
+    .halaal-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+    .halaal-btn {
+      flex: 1;
+      border: none; border-radius: 8px;
+      padding: 7px 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      transition: opacity 0.2s;
+    }
+    .halaal-btn:hover { opacity: 0.8; }
+    .btn-yes { background: #14532d; color: var(--green); }
+    .btn-no { background: #450a0a; color: var(--red); }
+    .btn-unsure { background: #292524; color: var(--yellow); }
+
+    .card-footer {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+    }
+    .card-footer a {
+      flex: 1;
+      display: block; text-align: center;
+      border-radius: 10px; padding: 9px 6px;
+      text-decoration: none;
+      font-weight: 700; font-size: 0.78rem;
+      font-family: 'Syne', sans-serif;
+      transition: background 0.2s, color 0.2s;
+    }
+    .btn-maps {
+      background: transparent;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+    }
+    .btn-maps:hover { background: var(--accent); color: #fff; }
+    .btn-route {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      border: none;
+    }
+    .btn-route:hover { opacity: 0.85; }
+
+    #status {
+      text-align: center; color: var(--muted);
+      font-size: 0.95rem; margin-top: 20px; margin-bottom: 20px;
+    }
+    .spinner {
+      display: inline-block; width: 18px; height: 18px;
+      border: 2px solid var(--border); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+      vertical-align: middle; margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🍔 Food Blip</h1>
+  <p>Find out how busy a spot is before you drive there</p>
+</header>
+
+<div class="search-box">
+  <input type="text" id="query" placeholder="Restaurant name (e.g. Nandos)"/>
+  <input type="text" id="location" placeholder="Your area (e.g. Kuilsriver, Cape Town)"/>
+  <button onclick="search()">🔍 Check It Out</button>
+</div>
+
+<div id="status"></div>
+<div id="results"></div>
+
+<script type="module">
+  // Wait for Firebase to be ready
+  function waitForFirebase(cb) {
+    if (window._db) cb();
+    else setTimeout(() => waitForFirebase(cb), 100);
+  }
+
+  // Load halaal data from Firebase for a place
+  async function loadHalaal(placeId) {
+    const ref = window._doc(window._db, "halaal", placeId);
+    const snap = await window._getDoc(ref);
+    if (snap.exists()) return snap.data();
+    return { yes: 0, no: 0, unsure: 0 };
+  }
+
+  // Submit a halaal vote
+  async function voteHalaal(placeId, vote) {
+    const ref = window._doc(window._db, "halaal", placeId);
+    const snap = await window._getDoc(ref);
+    if (snap.exists()) {
+      await window._updateDoc(ref, { [vote]: window._increment(1) });
+    } else {
+      const data = { yes: 0, no: 0, unsure: 0 };
+      data[vote] = 1;
+      await window._setDoc(ref, data);
+    }
+    return await loadHalaal(placeId);
+  }
+
+  function getHalaalVerdict(data, systemGuess) {
+    const total = data.yes + data.no + data.unsure;
+    if (total === 0) {
+      if (systemGuess === "likely") return { text: "✅ Likely Halaal", color: "#4ade80" };
+      return { text: "❓ Unknown — vote below", color: "#888" };
+    }
+    if (data.yes > data.no && data.yes > data.unsure)
+      return { text: `✅ Halaal (${data.yes} votes)`, color: "#4ade80" };
+    if (data.no > data.yes && data.no > data.unsure)
+      return { text: `❌ Not Halaal (${data.no} votes)`, color: "#f87171" };
+    return { text: `⚠️ Unsure (${data.unsure} unsure)`, color: "#fbbf24" };
+  }
+
+  function getBusyClass(busy) {
+    if (busy >= 75) return "busy-very";
+    if (busy >= 50) return "busy-fairly";
+    if (busy >= 30) return "busy-moderate";
+    return "busy-quiet";
+  }
+
+  function getRoute(userLat, userLng, destLat, destLng) {
+    if (userLat && userLng) {
+      return `https://www.google.com/maps/dir/${userLat},${userLng}/${destLat},${destLng}`;
+    }
+    return `https://www.google.com/maps/dir//${destLat},${destLng}`;
+  }
+
+  window.search = async function() {
+    const query = document.getElementById("query").value.trim();
+    const location = document.getElementById("location").value.trim();
+
+    if (!query || !location) {
+      document.getElementById("status").innerHTML = "⚠️ Please fill in both fields.";
+      return;
+    }
+
+    document.getElementById("status").innerHTML = '<span class="spinner"></span> Finding spots near you...';
+    document.getElementById("results").innerHTML = "";
+
+    // Get user location for routing
+    let userLat = null, userLng = null;
+    try {
+      await new Promise((res) => {
+        navigator.geolocation.getCurrentPosition(pos => {
+          userLat = pos.coords.latitude;
+          userLng = pos.coords.longitude;
+          res();
+        }, () => res(), { timeout: 3000 });
+      });
+    } catch(e) {}
+
+    try {
+      const res = await fetch(`/search?query=${encodeURIComponent(query)}&location=${encodeURIComponent(location)}`);
+      const data = await res.json();
+
+      if (data.error) {
+        document.getElementById("status").innerHTML = `❌ ${data.error} — try a different spelling?`;
+        return;
+      }
+
+      document.getElementById("status").innerHTML = `Found <strong>${data.length}</strong> spots`;
+      const container = document.getElementById("results");
+
+      for (const place of data) {
+        waitForFirebase(async () => {
+          const halaalData = await loadHalaal(place.place_id);
+          const verdict = getHalaalVerdict(halaalData, place.halaal);
+          const busyClass = getBusyClass(place.busy);
+          const routeUrl = getRoute(userLat, userLng, place.dest_lat, place.dest_lng);
+          const stars = place.rating !== "N/A" ? "★".repeat(Math.round(place.rating)) + "☆".repeat(5 - Math.round(place.rating)) : "—";
+          const openTag = place.open_now
+            ? `<span class="tag open">🟢 Open Now</span>`
+            : `<span class="tag closed">🔴 Closed</span>`;
+          const photoEl = place.photo_url
+            ? `<img class="card-photo" src="${place.photo_url}" alt="${place.name}"/>`
+            : `<div class="card-photo-placeholder">🍽️</div>`;
+
+          const cardId = `card-${place.place_id}`;
+
+          const cardHtml = `
+            <div class="card" id="${cardId}">
+              ${photoEl}
+              <div class="card-body">
+                <div class="card-name">${place.name}</div>
+                <div class="card-address">${place.address}</div>
+                <div class="rating-row">
+                  <span class="stars">${stars}</span>
+                  <strong>${place.rating}</strong>
+                  <span class="review-count">(${place.reviews.toLocaleString()} reviews)</span>
+                </div>
+                <div class="distance-row">
+                  📍 <span>${place.distance}</span> &nbsp;·&nbsp; 🚗 <span>${place.drive_time}</span>
+                </div>
+                <div class="tags">${openTag}</div>
+
+                <!-- Busy Gauge -->
+                <div class="busy-section">
+                  <div class="busy-label-row">
+                    <span>How Busy Right Now</span>
+                    <span style="color:var(--accent);font-weight:700">${place.busy_label}</span>
+                  </div>
+                  <div class="busy-gauge-track">
+                    <div class="busy-gauge-fill ${busyClass}" style="width:${place.busy}%"></div>
+                  </div>
+                  <div style="font-size:0.72rem;color:var(--muted)">Based on typical patterns for this time</div>
+                </div>
+
+                <!-- Halaal Section -->
+                <div class="halaal-section" id="halaal-${place.place_id}">
+                  <div class="halaal-title">🕌 Halaal Status — Community Verified</div>
+                  <div class="halaal-verdict" style="color:${verdict.color}">${verdict.text}</div>
+                  <div class="halaal-votes">Yes: ${halaalData.yes} &nbsp;|&nbsp; No: ${halaalData.no} &nbsp;|&nbsp; Unsure: ${halaalData.unsure}</div>
+                  <div class="halaal-buttons">
+                    <button class="halaal-btn btn-yes" onclick="vote('${place.place_id}', 'yes', '${place.halaal}')">✅ Halaal</button>
+                    <button class="halaal-btn btn-no" onclick="vote('${place.place_id}', 'no', '${place.halaal}')">❌ Not Halaal</button>
+                    <button class="halaal-btn btn-unsure" onclick="vote('${place.place_id}', 'unsure', '${place.halaal}')">⚠️ Not Sure</button>
+                  </div>
+                </div>
+              </div>
+              <div class="card-footer">
+                <a class="btn-maps" href="${place.maps_link}" target="_blank">📍 View on Maps</a>
+                <a class="btn-route" href="${routeUrl}" target="_blank">🧭 Get Route</a>
+              </div>
+            </div>
+          `;
+          container.innerHTML += cardHtml;
+        });
+      }
+
+    } catch(err) {
+      document.getElementById("status").innerHTML = "❌ Something went wrong. Make sure app.py is running.";
+    }
+  };
+
+  window.vote = async function(placeId, vote, systemGuess) {
+    const section = document.getElementById(`halaal-${placeId}`);
+    const verdictEl = section.querySelector(".halaal-verdict");
+    const votesEl = section.querySelector(".halaal-votes");
+    verdictEl.textContent = "Saving your vote...";
+
+    waitForFirebase(async () => {
+      const updated = await voteHalaal(placeId, vote);
+      const verdict = getHalaalVerdict(updated, systemGuess);
+      verdictEl.textContent = verdict.text;
+      verdictEl.style.color = verdict.color;
+      votesEl.textContent = `Yes: ${updated.yes} | No: ${updated.no} | Unsure: ${updated.unsure}`;
+    });
+  };
+
+  document.getElementById("query").addEventListener("keyup", e => { if (e.key === "Enter") window.search(); });
+  document.getElementById("location").addEventListener("keyup", e => { if (e.key === "Enter") window.search(); });
+</script>
+
+</body>
+</html>

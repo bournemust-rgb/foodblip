@@ -1,0 +1,528 @@
+bash
+
+cat > /mnt/user-data/outputs/app.py << 'EOF'
+from flask import Flask, request, jsonify, send_from_directory
+from dotenv import load_dotenv
+import requests
+import os
+
+load_dotenv()
+
+app = Flask(__name__)
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
+@app.route("/")
+def home():
+    return send_from_directory(".", "index.html")
+
+@app.route("/search")
+def search():
+    query = request.args.get("query", "")
+    location = request.args.get("location", "")
+
+    if not query:
+        return jsonify({"error": "No search query provided"}), 400
+
+    # Step 1: Get coordinates from location string
+    geo_url = "https://maps.googleapis.com/maps/api/geocode/json"
+    geo_params = {
+        "address": location,
+        "key": GOOGLE_API_KEY
+    }
+    geo_response = requests.get(geo_url, params=geo_params).json()
+
+    if not geo_response.get("results"):
+        return jsonify({"error": "Could not find your location"}), 400
+
+    coords = geo_response["results"][0]["geometry"]["location"]
+    lat = coords["lat"]
+    lng = coords["lng"]
+
+    # Step 2: Search for places
+    places_url = "https://maps.googleapis.com/maps/api/place/textsearch/json"
+    places_params = {
+        "query": query,
+        "location": f"{lat},{lng}",
+        "radius": 10000,
+        "key": GOOGLE_API_KEY
+    }
+    places_response = requests.get(places_url, params=places_params).json()
+
+    if not places_response.get("results"):
+        return jsonify({"error": "No places found"}), 404
+
+    results = []
+
+    for place in places_response["results"][:6]:
+        place_id = place.get("place_id")
+
+        # Step 3: Get place details
+        details_url = "https://maps.googleapis.com/maps/api/place/details/json"
+        details_params = {
+            "place_id": place_id,
+            "fields": "name,rating,user_ratings_total,formatted_address,opening_hours,current_opening_hours,price_level,types,geometry,business_status",
+            "key": GOOGLE_API_KEY
+        }
+        details_response = requests.get(details_url, params=details_params).json()
+        details = details_response.get("result", {})
+
+        # Step 4: Calculate distance
+        dist_url = "https://maps.googleapis.com/maps/api/distancematrix/json"
+        dist_params = {
+            "origins": f"{lat},{lng}",
+            "destinations": f"place_id:{place_id}",
+            "key": GOOGLE_API_KEY
+        }
+        dist_response = requests.get(dist_url, params=dist_params).json()
+
+        try:
+            distance = dist_response["rows"][0]["elements"][0]["distance"]["text"]
+            duration = dist_response["rows"][0]["elements"][0]["duration"]["text"]
+        except:
+            distance = "N/A"
+            duration = "N/A"
+
+        # Step 5: Get popular times busy percentage
+        popular_times_url = "https://maps.googleapis.com/maps/api/place/details/json"
+        popular_params = {
+            "place_id": place_id,
+            "fields": "current_opening_hours",
+            "key": GOOGLE_API_KEY
+        }
+
+        # Busy level from opening hours data
+        opening_hours = details.get("current_opening_hours", {})
+        busy_text = "Unknown"
+        busy_percent = 0
+
+        weekday_text = opening_hours.get("weekday_text", [])
+
+        # Check if open now
+        is_open = opening_hours.get("open_now", False)
+
+        # Price level
+        price_level = details.get("price_level", None)
+        price_map = {0: "Free", 1: "Inexpensive", 2: "Moderate", 3: "Expensive", 4: "Very Expensive"}
+        price_text = price_map.get(price_level, "Unknown")
+
+        # Rating
+        rating = details.get("rating", 0)
+        total_ratings = details.get("user_ratings_total", 0)
+
+        # Halaal check - basic keyword check in types and name
+        name = details.get("name", place.get("name", "Unknown"))
+        types = details.get("types", [])
+        halaal_keywords = ["halal", "halaal"]
+        is_halaal = any(k in name.lower() for k in halaal_keywords)
+        halaal_text = "Halaal" if is_halaal else "Not confirmed"
+
+        results.append({
+            "name": name,
+            "address": details.get("formatted_address", ""),
+            "rating": rating,
+            "total_ratings": total_ratings,
+            "is_open": is_open,
+            "distance": distance,
+            "duration": duration,
+            "price": price_text,
+            "halaal": halaal_text,
+            "place_id": place_id,
+            "busy_percent": busy_percent,
+            "busy_text": busy_text,
+            "weekday_hours": weekday_text
+        })
+
+    return jsonify(results)
+
+if __name__ == "__main__":
+    app.run(debug=True)
+EOF
+echo "app.py created"
+Output
+
+app.py created
+
+cat > /mnt/user-data/outputs/index.html << 'EOF'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Food Blip</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0f0f0f;
+    color: #f0f0f0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+  }
+
+  header {
+    padding: 2rem;
+    text-align: center;
+    border-bottom: 1px solid #1e1e1e;
+  }
+
+  .logo {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #ff6b2b;
+    letter-spacing: -1px;
+  }
+
+  .logo span {
+    color: #f0f0f0;
+  }
+
+  .tagline {
+    font-size: 0.85rem;
+    color: #666;
+    margin-top: 4px;
+  }
+
+  .search-section {
+    max-width: 680px;
+    margin: 2.5rem auto;
+    padding: 0 1.5rem;
+  }
+
+  .search-box {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 16px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  input {
+    flex: 1;
+    min-width: 180px;
+    background: #0f0f0f;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    padding: 12px 16px;
+    color: #f0f0f0;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input:focus { border-color: #ff6b2b; }
+  input::placeholder { color: #444; }
+
+  button#searchBtn {
+    background: #ff6b2b;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 24px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    white-space: nowrap;
+  }
+
+  button#searchBtn:hover { background: #e85d20; }
+  button#searchBtn:active { transform: scale(0.98); }
+
+  .results {
+    max-width: 680px;
+    margin: 0 auto 3rem;
+    padding: 0 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .card {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 16px;
+    padding: 1.25rem 1.5rem;
+    transition: border-color 0.2s;
+  }
+
+  .card:hover { border-color: #ff6b2b44; }
+
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .card-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #f0f0f0;
+  }
+
+  .card-address {
+    font-size: 0.8rem;
+    color: #555;
+    margin-top: 2px;
+  }
+
+  .open-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+
+  .open { background: #1a3a1a; color: #4caf50; }
+  .closed { background: #3a1a1a; color: #f44336; }
+
+  .stats-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 12px 0;
+  }
+
+  .stat {
+    background: #0f0f0f;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    color: #aaa;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .stat strong { color: #f0f0f0; }
+
+  .stat.halaal-yes { border-color: #2a4a2a; color: #4caf50; }
+  .stat.halaal-no { border-color: #2a2a2a; color: #666; }
+
+  .stars {
+    color: #ff6b2b;
+    font-size: 0.85rem;
+  }
+
+  .busy-bar-wrap {
+    margin-top: 12px;
+  }
+
+  .busy-label {
+    font-size: 0.75rem;
+    color: #666;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .busy-bar-bg {
+    background: #0f0f0f;
+    border-radius: 6px;
+    height: 8px;
+    overflow: hidden;
+    border: 1px solid #2a2a2a;
+  }
+
+  .busy-bar-fill {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.8s ease;
+  }
+
+  .maps-link {
+    display: inline-block;
+    margin-top: 12px;
+    font-size: 0.8rem;
+    color: #ff6b2b;
+    text-decoration: none;
+    opacity: 0.8;
+  }
+
+  .maps-link:hover { opacity: 1; }
+
+  .loading {
+    text-align: center;
+    padding: 3rem;
+    color: #444;
+    font-size: 0.95rem;
+  }
+
+  .loading-dot {
+    display: inline-block;
+    animation: blink 1.2s infinite;
+  }
+
+  .loading-dot:nth-child(2) { animation-delay: 0.2s; }
+  .loading-dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes blink {
+    0%, 80%, 100% { opacity: 0.2; }
+    40% { opacity: 1; }
+  }
+
+  .error-msg {
+    text-align: center;
+    padding: 2rem;
+    color: #f44336;
+    font-size: 0.9rem;
+  }
+
+  .results-title {
+    font-size: 0.8rem;
+    color: #444;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Food<span>Blip</span></div>
+  <p class="tagline">Check before you go</p>
+</header>
+
+<div class="search-section">
+  <div class="search-box">
+    <div class="input-row">
+      <input type="text" id="queryInput" placeholder="What are you looking for? e.g. Nandos" />
+    </div>
+    <div class="input-row">
+      <input type="text" id="locationInput" placeholder="Your area e.g. Kuilsriver, Cape Town" />
+      <button id="searchBtn" onclick="search()">Search</button>
+    </div>
+  </div>
+</div>
+
+<div class="results" id="results"></div>
+
+<script>
+  function getStars(rating) {
+    const full = Math.floor(rating);
+    const half = rating % 1 >= 0.5 ? 1 : 0;
+    return "★".repeat(full) + (half ? "½" : "") + " " + rating.toFixed(1);
+  }
+
+  function getBusyColor(percent) {
+    if (percent < 30) return "#4caf50";
+    if (percent < 60) return "#ff9800";
+    return "#f44336";
+  }
+
+  function getBusyLabel(percent) {
+    if (percent === 0) return "No live data";
+    if (percent < 30) return "Not busy";
+    if (percent < 60) return "Moderately busy";
+    if (percent < 80) return "Quite busy";
+    return "Very busy";
+  }
+
+  async function search() {
+    const query = document.getElementById("queryInput").value.trim();
+    const location = document.getElementById("locationInput").value.trim();
+    const resultsDiv = document.getElementById("results");
+
+    if (!query || !location) {
+      resultsDiv.innerHTML = '<p class="error-msg">Please enter both a place and your area.</p>';
+      return;
+    }
+
+    resultsDiv.innerHTML = `
+      <p class="loading">
+        Searching Food Blip
+        <span class="loading-dot">.</span>
+        <span class="loading-dot">.</span>
+        <span class="loading-dot">.</span>
+      </p>`;
+
+    try {
+      const res = await fetch(`/search?query=${encodeURIComponent(query)}&location=${encodeURIComponent(location)}`);
+      const data = await res.json();
+
+      if (data.error) {
+        resultsDiv.innerHTML = `<p class="error-msg">${data.error}</p>`;
+        return;
+      }
+
+      resultsDiv.innerHTML = `<p class="results-title">${data.length} results found</p>`;
+
+      data.forEach(place => {
+        const isOpen = place.is_open;
+        const busyPercent = place.busy_percent || 0;
+        const busyColor = getBusyColor(busyPercent);
+        const busyLabel = getBusyLabel(busyPercent);
+        const isHalaal = place.halaal === "Halaal";
+        const mapsUrl = `https://www.google.com/maps/place/?q=place_id:${place.place_id}`;
+
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+          <div class="card-top">
+            <div>
+              <div class="card-name">${place.name}</div>
+              <div class="card-address">${place.address}</div>
+            </div>
+            <span class="open-badge ${isOpen ? 'open' : 'closed'}">
+              ${isOpen ? '● Open' : '● Closed'}
+            </span>
+          </div>
+
+          <div class="stats-row">
+            <div class="stat">
+              <span class="stars">${place.rating ? getStars(place.rating) : 'No rating'}</span>
+              ${place.total_ratings ? `<span style="color:#555">(${place.total_ratings.toLocaleString()})</span>` : ''}
+            </div>
+            <div class="stat">📍 <strong>${place.distance}</strong></div>
+            <div class="stat">🚗 <strong>${place.duration}</strong> away</div>
+            <div class="stat">💰 ${place.price}</div>
+            <div class="stat ${isHalaal ? 'halaal-yes' : 'halaal-no'}">
+              ${isHalaal ? '✓ Halaal' : '? Halaal unconfirmed'}
+            </div>
+          </div>
+
+          <div class="busy-bar-wrap">
+            <div class="busy-label">
+              <span>How busy</span>
+              <span style="color: ${busyColor}">${busyLabel}</span>
+            </div>
+            <div class="busy-bar-bg">
+              <div class="busy-bar-fill" style="width: ${busyPercent}%; background: ${busyColor};"></div>
+            </div>
+          </div>
+
+          <a class="maps-link" href="${mapsUrl}" target="_blank">View on Google Maps →</a>
+        `;
+
+        resultsDiv.appendChild(card);
+      });
+
+    } catch (err) {
+      resultsDiv.innerHTML = '<p class="error-msg">Something went wrong. Make sure the app is running.</p>';
+    }
+  }
+
+  document.addEventListener("keydown", e => {
+    if (e.key === "Enter") search();
+  });
+</script>
+
+</body>
+</html>
+EOF
+echo "index.html created"
+Output
+
+index.html created
