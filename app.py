@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, jsonify
 import requests
 import os
 
-app = Flask(__name__, static_folder='static', static_url_path='/static')
+app = Flask(__name__)
 
 GOOGLE_API_KEY = "AIzaSyCLeD0v0ZKH6PHHQUJ4uQIR-ETu9K_21Z8"
 
@@ -44,7 +44,7 @@ def search():
         return jsonify({"error": "No restaurants found. Did you mean something else?"}), 404
 
     output = []
-    for place in results[:6]:
+    for place in results[:4]:
         place_id = place.get("place_id")
 
         # Step 3: Get place details
@@ -130,7 +130,7 @@ def search():
             "photo_url": photo_url,
             "busy": busy,
             "busy_label": busy_label,
-           "maps_link": f"https://www.google.com/maps/search/?api=1&query={requests.utils.quote(name)}&query_place_id={place_id}",
+            "maps_link": f"https://www.google.com/maps/place/?q=place_id:{place_id}",
             "dest_lat": dest_lat,
             "dest_lng": dest_lng
         })
