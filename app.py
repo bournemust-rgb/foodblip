@@ -130,7 +130,7 @@ def search():
             "photo_url": photo_url,
             "busy": busy,
             "busy_label": busy_label,
-            "maps_link": f"https://www.google.com/maps/place/?q=place_id:{place_id}",
+           "maps_link": f"https://www.google.com/maps/search/?api=1&query={requests.utils.quote(name)}&query_place_id={place_id}",
             "dest_lat": dest_lat,
             "dest_lng": dest_lng
         })
