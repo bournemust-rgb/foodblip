@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, jsonify
 import requests
 import os
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static', static_url_path='/static')
 
 GOOGLE_API_KEY = "AIzaSyCLeD0v0ZKH6PHHQUJ4uQIR-ETu9K_21Z8"
 
