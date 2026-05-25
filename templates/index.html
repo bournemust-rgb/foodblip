@@ -349,6 +349,10 @@
 
       for (const place of data) {
         waitForFirebase(async () => {
+const reactionData = await loadReactions(place.place_id);
+          document.getElementById(`fire-${place.place_id}`) && (document.getElementById(`fire-${place.place_id}`).textContent  = `🔥 Amazing (${reactionData.fire})`);
+          document.getElementById(`solid-${place.place_id}`) && (document.getElementById(`solid-${place.place_id}`).textContent = `👍 Solid (${reactionData.solid})`);
+          document.getElementById(`skip-${place.place_id}`) && (document.getElementById(`skip-${place.place_id}`).textContent  = `👎 Skip It (${reactionData.skip})`);
           const halaalData = await loadHalaal(place.place_id);
           const verdict    = getHalaalVerdict(halaalData, place.halaal);
           const busyClass  = getBusyClass(place.busy);
@@ -387,6 +391,11 @@
                     <div class="busy-gauge-fill ${busyClass}" style="width:${place.busy}%"></div>
                   </div>
                   <div style="font-size:0.72rem;color:var(--muted)">Based on typical patterns for this time</div>
+                </div>
+<div class="reactions-section" id="reactions-${place.place_id}" style="display:flex; gap:8px; flex-wrap:wrap;">
+                  <button onclick="react('${place.place_id}','fire')" style="flex:1; background:#1a1a1a; border:1px solid #2a2a2a; border-radius:10px; padding:8px; cursor:pointer; font-size:0.8rem; color:#f0f0f0; font-weight:700;" id="fire-${place.place_id}">🔥 Amazing</button>
+                  <button onclick="react('${place.place_id}','solid')" style="flex:1; background:#1a1a1a; border:1px solid #2a2a2a; border-radius:10px; padding:8px; cursor:pointer; font-size:0.8rem; color:#f0f0f0; font-weight:700;" id="solid-${place.place_id}">👍 Solid</button>
+                  <button onclick="react('${place.place_id}','skip')" style="flex:1; background:#1a1a1a; border:1px solid #2a2a2a; border-radius:10px; padding:8px; cursor:pointer; font-size:0.8rem; color:#f0f0f0; font-weight:700;" id="skip-${place.place_id}">👎 Skip It</button>
                 </div>
                 <div class="halaal-section" id="halaal-${place.place_id}">
                   <div class="halaal-title">🕌 Halaal Status — Community Verified</div>
@@ -427,6 +436,27 @@
 
   document.getElementById("query").addEventListener("keyup",    e => { if (e.key === "Enter") window.search(); });
   document.getElementById("location").addEventListener("keyup", e => { if (e.key === "Enter") window.search(); });
+async function loadReactions(placeId) {
+    const ref  = window._doc(window._db, "reactions", placeId);
+    const snap = await window._getDoc(ref);
+    return snap.exists() ? snap.data() : { fire: 0, solid: 0, skip: 0 };
+  }
+
+  window.react = async function (placeId, type) {
+    const ref  = window._doc(window._db, "reactions", placeId);
+    const snap = await window._getDoc(ref);
+    if (snap.exists()) {
+      await window._updateDoc(ref, { [type]: window._increment(1) });
+    } else {
+      const data = { fire: 0, solid: 0, skip: 0 };
+      data[type] = 1;
+      await window._setDoc(ref, data);
+    }
+    const updated = await loadReactions(placeId);
+    document.getElementById(`fire-${placeId}`).textContent  = `🔥 Amazing (${updated.fire})`;
+    document.getElementById(`solid-${placeId}`).textContent = `👍 Solid (${updated.solid})`;
+    document.getElementById(`skip-${placeId}`).textContent  = `👎 Skip It (${updated.skip})`;
+  };
 let halaalFilterOn = false;
 
   window.toggleHalaalFilter = function () {
