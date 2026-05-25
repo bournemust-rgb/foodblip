@@ -328,8 +328,8 @@
 
   function getRoute(userLat, userLng, destLat, destLng) {
     return (userLat && userLng)
-      ? `http://maps.google.com/?saddr=${userLat},${userLng}&daddr=${destLat},${destLng}`
-      : `http://maps.google.com/?daddr=${destLat},${destLng}`;
+      ? `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${destLat},${destLng}`
+      : `https://www.google.com/maps/search/?api=1&query=${destLat},${destLng}`;
   }
 
   /* ── Progress bar helpers ── */
@@ -339,6 +339,7 @@
     bar.style.width   = "0%";
     requestAnimationFrame(() => { bar.style.width = "85%"; bar.style.transition = "width 2s ease"; });
   }
+  
   function finishProgress() {
     const bar = document.getElementById("progressBar");
     bar.style.transition = "width 0.2s ease";
@@ -404,7 +405,7 @@
     document.querySelectorAll(".card").forEach(card => {
       const verdict = card.querySelector(".halaal-verdict");
       card.style.display = halaalFilterOn
-        ? (verdict && (verdict.textContent.includes("✅") || verdict.textContent.includes("Halaal (")) ? "flex" : "none")
+        ? (verdict && (verdict.textContent.includes("✅") || verdict.textContent.includes("Halaal ("))) ? "flex" : "none"
         : "flex";
     });
   };
@@ -418,7 +419,6 @@
       return;
     }
 
-    // Save context state into our historic analytics component
     saveSearchToHistory(query, location);
 
     document.getElementById("status").innerHTML = "";
@@ -542,7 +542,6 @@
           </div>`);
       }
 
-      // Re-apply filter constraint mask dynamically if it was currently toggled on
       if (halaalFilterOn) {
         document.querySelectorAll(".card").forEach(card => {
           const verdict = card.querySelector(".halaal-verdict");
@@ -567,7 +566,7 @@
         if (foundTopRated && typeof confetti === "function") {
           confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 }, colors: ['#F47B20', '#CC2529', '#fbbf24'] });
         }
-      }, 200);
+      }, 350);
 
     } catch (err) {
       container.innerHTML = "";
