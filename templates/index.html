@@ -87,10 +87,14 @@
     .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 8px; }
     @keyframes spin { to { transform: rotate(360deg); } }
     footer { text-align: center; padding: 20px 16px 24px; margin-top: 40px; border-top: 1px solid var(--border); }.skeleton-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
-    .skeleton-img { width: 100%; height: 160px; background: #2a2a2a; }
-    .skeleton-body { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
-    .skeleton-line { background: #2a2a2a; border-radius: 6px; animation: pulse 1.5s ease-in-out infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+   .progress-bar { position: fixed; top: 0; left: 0; height: 3px; background: linear-gradient(90deg, #F47B20, #CC2529); animation: progress 2s ease-in-out infinite; z-index: 9999; }
+@keyframes progress { 0% { width: 0%; } 70% { width: 85%; } 100% { width: 95%; } }
+.emoji-loader { text-align: center; padding: 32px 0 16px; }
+.emoji-loader span { font-size: 2rem; display: inline-block; animation: bounce 0.8s ease-in-out infinite; }
+.emoji-loader span:nth-child(2) { animation-delay: 0.15s; }
+.emoji-loader span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+.emoji-loader p { color: var(--muted); font-size: 0.85rem; margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -276,18 +280,12 @@
     }
    document.getElementById("status").innerHTML = "";
     document.getElementById("results").innerHTML = `
-      ${[1,2,3,4].map(() => `
-        <div class="skeleton-card">
-          <div class="skeleton-img"></div>
-          <div class="skeleton-body">
-            <div class="skeleton-line" style="height:18px; width:70%;"></div>
-            <div class="skeleton-line" style="height:12px; width:90%;"></div>
-            <div class="skeleton-line" style="height:12px; width:50%;"></div>
-            <div class="skeleton-line" style="height:12px; width:60%;"></div>
-            <div class="skeleton-line" style="height:32px; width:100%;"></div>
-          </div>
-        </div>
-      `).join('')}
+      <div class="progress-bar" id="progressBar"></div>
+      <div class="emoji-loader">
+        <span>🍔</span><span>🌮</span><span>🍕</span>
+        <p>Finding spots near you...</p>
+      </div>
+    `;
     `;
 
     let userLat = null, userLng = null;
