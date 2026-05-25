@@ -28,23 +28,43 @@
   </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    
     :root {
       --bg: #0f0f0f; --card: #1a1a1a; --border: #2a2a2a;
       --accent: #ff6a00; --accent2: #ff9a44; --text: #f0f0f0;
       --muted: #888; --green: #4ade80; --red: #f87171; --yellow: #fbbf24;
     }
-    body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; padding: 0 16px 80px; }
-    header { text-align: center; padding: 48px 0 32px; }
+
+    [data-theme="light"] {
+      --bg: #f5f5f7; --card: #ffffff; --border: #e2e8f0;
+      --accent: #ff6a00; --accent2: #ff9a44; --text: #1e293b;
+      --muted: #64748b; --green: #16a34a; --red: #dc2626; --yellow: #d97706;
+    }
+
+    body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; padding: 0 16px 80px; transition: background 0.3s, color 0.3s; }
+    header { text-align: center; padding: 48px 0 32px; position: relative; }
     header p { color: var(--muted); margin-top: 8px; font-size: 1rem; }
-    .search-box { max-width: 640px; margin: 0 auto 40px; display: flex; flex-direction: column; gap: 12px; }
-    .search-box input { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; color: var(--text); font-size: 1rem; font-family: 'DM Sans', sans-serif; outline: none; transition: border 0.2s; }
+    
+    /* Theme Toggle Switch */
+    .theme-toggle-btn { position: absolute; top: 16px; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 50%; width: 44px; height: 44px; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .theme-toggle-btn:hover { border-color: var(--accent); transform: scale(1.05); }
+
+    .search-box { max-width: 640px; margin: 0 auto 16px; display: flex; flex-direction: column; gap: 12px; }
+    .search-box input { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; color: var(--text); font-size: 1rem; font-family: 'DM Sans', sans-serif; outline: none; transition: border 0.2s, background 0.2s; }
     .search-box input:focus { border-color: var(--accent); }
     .search-box input::placeholder { color: var(--muted); }
     .search-box button { background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 12px; padding: 14px; color: #fff; font-size: 1rem; font-weight: 700; font-family: 'Syne', sans-serif; cursor: pointer; transition: opacity 0.2s; }
     .search-box button:hover { opacity: 0.88; }
+    
+    /* History Component */
+    .history-container { max-width: 640px; margin: 0 auto 32px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .history-label { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); font-family: 'Syne', sans-serif; }
+    .history-pill { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 6px 14px; font-size: 0.8rem; font-family: 'DM Sans', sans-serif; color: var(--text); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 4px; }
+    .history-pill:hover { border-color: var(--accent); background: rgba(255, 106, 0, 0.05); }
+
     #results { max-width: 960px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 20px; }
-    .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; transition: transform 0.2s, border-color 0.2s; }
-    .card:hover { transform: translateY(-4px); border-color: var(--accent); }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s; }
+    .card:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
     .card-photo { width: 100%; height: 160px; object-fit: cover; background: var(--border); }
     .card-photo-placeholder { width: 100%; height: 160px; background: linear-gradient(135deg, #1f1f1f, #2a2a2a); display: flex; align-items: center; justify-content: center; font-size: 2.5rem; }
     .card-body { padding: 16px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
@@ -76,36 +96,38 @@
       70% { transform: translateY(2px) scaleY(0.95); }
     }
     .emoji-loader p { color: var(--muted); font-size: 0.85rem; margin-top: 12px; font-weight: 500; }
-    .tag { background: #222; border: 1px solid var(--border); border-radius: 20px; padding: 3px 11px; font-size: 0.76rem; color: var(--muted); }
+    .tag { background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 20px; padding: 3px 11px; font-size: 0.76rem; color: var(--muted); }
+    [data-theme="light"] .tag { background: rgba(0,0,0,0.03); }
     .tag.open { color: var(--green); border-color: var(--green); }
     .tag.closed { color: var(--red); border-color: var(--red); }
     .busy-section { display: flex; flex-direction: column; gap: 6px; }
     .busy-label-row { display: flex; justify-content: space-between; font-size: 0.8rem; }
     .busy-label-row span:first-child { color: var(--muted); }
-    .busy-gauge-track { width: 100%; height: 10px; background: #2a2a2a; border-radius: 99px; overflow: hidden; }
-    /* Animated Busy Gauge Variables */
+    .busy-gauge-track { width: 100%; height: 10px; background: var(--border); border-radius: 99px; overflow: hidden; }
     .busy-gauge-fill { height: 100%; border-radius: 99px; width: 0% !important; transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1); }
     .busy-gauge-fill.animated { width: var(--target-width) !important; }
     .busy-quiet { background: var(--green); }
     .busy-moderate { background: var(--yellow); }
     .busy-fairly { background: #f97316; }
     .busy-very { background: var(--red); }
-    .halaal-section { background: #111; border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .halaal-section { background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    [data-theme="light"] .halaal-section { background: rgba(0,0,0,0.02); }
     .halaal-title { font-size: 0.8rem; color: var(--muted); }
     .halaal-verdict { font-size: 0.9rem; font-weight: 700; }
     .halaal-votes { font-size: 0.75rem; color: var(--muted); }
     .halaal-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
     .halaal-btn { flex: 1; border: none; border-radius: 8px; padding: 7px 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: opacity 0.2s; }
     .halaal-btn:hover { opacity: 0.8; }
-    .btn-yes { background: #14532d; color: var(--green); }
-    .btn-no { background: #450a0a; color: var(--red); }
-    .btn-unsure { background: #292524; color: var(--yellow); }
+    .btn-yes { background: #14532d; color: #4ade80; }
+    .btn-no { background: #450a0a; color: #f87171; }
+    .btn-unsure { background: #292524; color: #fbbf24; }
     .card-footer { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
   </style>
 </head>
 <body>
 
   <header>
+    <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle Theme">🌓</button>
     <img src="https://i.postimg.cc/HsNrmL41/logo-2-transp.png" alt="Food Blip Logo" style="width:min(880px, 90vw); height:auto; object-fit:contain; margin:0 auto 8px; display:block;"/>
     <h1 style="font-family:'Syne',sans-serif; font-size:3rem; font-weight:800; background:linear-gradient(135deg,#F47B20,#CC2529); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; letter-spacing:-1px; margin-bottom:8px;">Food Blip</h1>
     <p>Find out how busy a spot is before you drive there 🔥</p>
@@ -119,6 +141,11 @@
     </div>
     <button onclick="search()">🔍 Check It Out</button>
     <button onclick="surpriseMe()" style="background:linear-gradient(135deg,#7c3aed,#a855f7); border:none; border-radius:12px; padding:14px; color:#fff; font-size:1rem; font-weight:700; font-family:'Syne',sans-serif; cursor:pointer; transition:opacity 0.2s;">🎲 Surprise Me</button>
+  </div>
+
+  <div class="history-container" id="historyContainer" style="display: none;">
+    <span class="history-label">Recents:</span>
+    <div id="historyPills" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
   </div>
 
   <div style="max-width:960px; margin:0 auto 20px;">
@@ -146,6 +173,84 @@
   </footer>
 
 <script type="module">
+
+  /* ── Core Configuration Init ── */
+  document.addEventListener("DOMContentLoaded", () => {
+    initTheme();
+    renderHistory();
+  });
+
+  /* ── Theme Engine ── */
+  window.toggleTheme = function() {
+    const currentTheme = document.documentElement.getAttribute("data-theme") || "dark";
+    const targetTheme = currentTheme === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", targetTheme);
+    localStorage.setItem("theme-preference", targetTheme);
+  };
+
+  function initTheme() {
+    const savedTheme = localStorage.getItem("theme-preference") || "dark";
+    document.documentElement.setAttribute("data-theme", savedTheme);
+  }
+
+  /* ── Recent History Engine ── */
+  function saveSearchToHistory(query, location) {
+    if (!query || !location) return;
+    const historyItem = { query, location, label: `${query} (${location.split(',')[0].trim()})` };
+    let list = JSON.parse(localStorage.getItem("fb-history")) || [];
+    
+    // Filter duplicates
+    list = list.filter(item => !(item.query.toLowerCase() === query.toLowerCase() && item.location.toLowerCase() === location.toLowerCase()));
+    list.unshift(historyItem);
+    
+    // Keep max 4 entries
+    if (list.length > 4) list.pop();
+    
+    localStorage.setItem("fb-history", JSON.stringify(list));
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const container = document.getElementById("historyContainer");
+    const pillsWrap = document.getElementById("historyPills");
+    const list = JSON.parse(localStorage.getItem("fb-history")) || [];
+    
+    if (list.length === 0) {
+      container.style.display = "none";
+      return;
+    }
+    
+    container.style.display = "flex";
+    pillsWrap.innerHTML = list.map((item, index) => `
+      <button class="history-pill" onclick="triggerHistorySearch(${index})">
+        ⏱️ ${escapeHtml(item.label)}
+      </button>
+    `).join("");
+  }
+
+  window.triggerHistorySearch = function(index) {
+    const list = JSON.parse(localStorage.getItem("fb-history")) || [];
+    if (!list[index]) return;
+    document.getElementById("query").value = list[index].query;
+    document.getElementById("location").value = list[index].location;
+    window.search();
+  };
+
+  function escapeHtml(str) {
+    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+  }
+
+  /* ── WhatsApp Custom Formatter ── */
+  function getWhatsAppShareUrl(place) {
+    const busyPercentage = place.busy || 0;
+    let visualStatusIndicator = "🟢 Quiet Line";
+    if (busyPercentage >= 75) visualStatusIndicator = "🔴 Packed / High Wait Time";
+    else if (busyPercentage >= 50) visualStatusIndicator = "🟠 Moderately Busy";
+    else if (busyPercentage >= 30) visualStatusIndicator = "🟡 Medium Line";
+
+    const textTemplate = `⚡ *LIVE TRAFFIC RADAR via Food Blip* ⚡\n\n🍔 *${place.name}*\n📍 _${place.address}_\n\n📊 *Live Meter:* ${busyPercentage}% capacity\n🚦 *Status:* ${visualStatusIndicator} (${place.busy_label})\n\n⭐ *Rating:* ${place.rating} (${place.reviews.toLocaleString()} reviews)\n🚗 *Drive:* ${place.distance} away (${place.drive_time} travel)\n\nCheck live updates on Food Blip 👉 https://foodblip.vercel.app`;
+    return `https://wa.me/?text=${encodeURIComponent(textTemplate)}`;
+  }
 
   /* ── Firebase helpers ── */
   function waitForFirebase() {
@@ -206,12 +311,12 @@
     const total = data.yes + data.no + data.unsure;
     if (total === 0) {
       return systemGuess === "likely"
-        ? { text: "✅ Likely Halaal", color: "#4ade80" }
-        : { text: "❓ Unknown — vote below", color: "#888" };
+        ? { text: "✅ Likely Halaal", color: "var(--green)" }
+        : { text: "❓ Unknown — vote below", color: "var(--muted)" };
     }
-    if (data.yes > data.no && data.yes > data.unsure) return { text: `✅ Halaal (${data.yes} votes)`, color: "#4ade80" };
-    if (data.no  > data.yes && data.no  > data.unsure) return { text: `❌ Not Halaal (${data.no} votes)`, color: "#f87171" };
-    return { text: `⚠️ Unsure (${data.unsure} unsure)`, color: "#fbbf24" };
+    if (data.yes > data.no && data.yes > data.unsure) return { text: `✅ Halaal (${data.yes} votes)`, color: "var(--green)" };
+    if (data.no  > data.yes && data.no  > data.unsure) return { text: `❌ Not Halaal (${data.no} votes)`, color: "var(--red)" };
+    return { text: `⚠️ Unsure (${data.unsure} unsure)`, color: "var(--yellow)" };
   }
 
   function getBusyClass(busy) {
@@ -221,11 +326,10 @@
     return "busy-quiet";
   }
 
-  // Fixed syntax template literal bracket positioning error here
   function getRoute(userLat, userLng, destLat, destLng) {
     return (userLat && userLng)
-      ? `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${destLat},${destLng}`
-      : `https://www.google.com/maps/search/?api=1&query=${destLat},${destLng}`;
+      ? `http://maps.google.com/?saddr=${userLat},${userLng}&daddr=${destLat},${destLng}`
+      : `http://maps.google.com/?daddr=${destLat},${destLng}`;
   }
 
   /* ── Progress bar helpers ── */
@@ -251,7 +355,7 @@
     const board = document.getElementById("leaderboard");
     const btn   = document.getElementById("leaderboardBtn");
     board.style.display   = leaderboardOpen ? "block" : "none";
-    btn.style.background  = leaderboardOpen ? "#1a1a1a" : "var(--card)";
+    btn.style.background  = leaderboardOpen ? "var(--bg)" : "var(--card)";
     btn.style.color       = leaderboardOpen ? "var(--accent)" : "var(--muted)";
     btn.style.borderColor = leaderboardOpen ? "var(--accent)" : "var(--border)";
     btn.textContent       = leaderboardOpen ? "🏆 Hide Leaderboard" : "🏆 Show Local Leaderboard";
@@ -267,7 +371,7 @@
     }
     entries.sort((a, b) => (b.fire + b.solid) - (a.fire + a.solid));
     list.innerHTML = entries.slice(0, 5).map((e, i) => `
-      <div style="display:flex; align-items:center; gap:12px; padding:10px; background:#111; border-radius:10px;">
+      <div style="display:flex; align-items:center; gap:12px; padding:10px; background:rgba(0,0,0,0.1); border-radius:10px;">
         <div style="font-family:'Syne',sans-serif; font-size:1.2rem; font-weight:800; color:${i===0?'#F47B20':i===1?'#888':i===2?'#cd7f32':'var(--muted)'};">
           ${i===0?'🥇':i===1?'🥈':i===2?'🥉':'#'+(i+1)}
         </div>
@@ -300,7 +404,7 @@
     document.querySelectorAll(".card").forEach(card => {
       const verdict = card.querySelector(".halaal-verdict");
       card.style.display = halaalFilterOn
-        ? (verdict && verdict.textContent.includes("✅") ? "flex" : "none")
+        ? (verdict && (verdict.textContent.includes("✅") || verdict.textContent.includes("Halaal (")) ? "flex" : "none")
         : "flex";
     });
   };
@@ -313,6 +417,9 @@
       document.getElementById("status").innerHTML = "⚠️ Please fill in both fields.";
       return;
     }
+
+    // Save context state into our historic analytics component
+    saveSearchToHistory(query, location);
 
     document.getElementById("status").innerHTML = "";
     const container = document.getElementById("results");
@@ -357,6 +464,7 @@
         const verdict   = getHalaalVerdict(halaalData, place.halaal);
         const busyClass = getBusyClass(place.busy);
         const routeUrl  = getRoute(userLat, userLng, place.dest_lat, place.dest_lng);
+        const waUrl     = getWhatsAppShareUrl(place);
         const stars     = place.rating !== "N/A"
           ? "★".repeat(Math.round(place.rating)) + "☆".repeat(5 - Math.round(place.rating))
           : "—";
@@ -407,9 +515,9 @@
                 </div>
               </div>
               <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                <button onclick="react('${place.place_id}','fire')"  style="flex:1; background:#1a1a1a; border:1px solid #2a2a2a; border-radius:10px; padding:8px; cursor:pointer; font-size:0.8rem; color:#f0f0f0; font-weight:700;" id="fire-${place.place_id}">🔥 Amazing (${reactionData.fire})</button>
-                <button onclick="react('${place.place_id}','solid')" style="flex:1; background:#1a1a1a; border:1px solid #2a2a2a; border-radius:10px; padding:8px; cursor:pointer; font-size:0.8rem; color:#f0f0f0; font-weight:700;" id="solid-${place.place_id}">👍 Solid (${reactionData.solid})</button>
-                <button onclick="react('${place.place_id}','skip')"  style="flex:1; background:#1a1a1a; border:1px solid #2a2a2a; border-radius:10px; padding:8px; cursor:pointer; font-size:0.8rem; color:#f0f0f0; font-weight:700;" id="skip-${place.place_id}">👎 Skip It (${reactionData.skip})</button>
+                <button onclick="react('${place.place_id}','fire')"  style="flex:1; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:8px; cursor:pointer; font-size:0.8rem; color:var(--text); font-weight:700;" id="fire-${place.place_id}">🔥 Amazing (${reactionData.fire})</button>
+                <button onclick="react('${place.place_id}','solid')" style="flex:1; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:8px; cursor:pointer; font-size:0.8rem; color:var(--text); font-weight:700;" id="solid-${place.place_id}">👍 Solid (${reactionData.solid})</button>
+                <button onclick="react('${place.place_id}','skip')"  style="flex:1; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:8px; cursor:pointer; font-size:0.8rem; color:var(--text); font-weight:700;" id="skip-${place.place_id}">👎 Skip It (${reactionData.skip})</button>
               </div>
               <div class="halaal-section" id="halaal-${place.place_id}">
                 <div class="halaal-title">🕌 Halaal Status — Community Verified</div>
@@ -427,14 +535,21 @@
               <a class="btn-route" href="${routeUrl}" target="_blank">🧭 Get Route</a>
             </div>
             <div style="padding:0 12px 12px;">
-              <a href="https://wa.me/?text=${encodeURIComponent(`🍔 *${place.name}*\n⭐ ${place.rating} (${place.reviews} reviews)\n📍 ${place.distance} away · 🚗 ${place.drive_time}\n\nChecked on Food Blip 👉 https://foodblip.vercel.app`)}" target="_blank" style="display:block; text-align:center; background:#25D366; border-radius:10px; padding:9px; color:#fff; text-decoration:none; font-weight:700; font-size:0.82rem; font-family:'Syne',sans-serif;">
+              <a href="${waUrl}" target="_blank" style="display:block; text-align:center; background:#25D366; border-radius:10px; padding:9px; color:#fff; text-decoration:none; font-weight:700; font-size:0.82rem; font-family:'Syne',sans-serif;">
                 📲 Share on WhatsApp
               </a>
             </div>
           </div>`);
       }
 
-      // Smooth trigger for expanding gauges and firing confetti bursts on high-tier ratings
+      // Re-apply filter constraint mask dynamically if it was currently toggled on
+      if (halaalFilterOn) {
+        document.querySelectorAll(".card").forEach(card => {
+          const verdict = card.querySelector(".halaal-verdict");
+          card.style.display = (verdict && (verdict.textContent.includes("✅") || verdict.textContent.includes("Halaal ("))) ? "flex" : "none";
+        });
+      }
+
       setTimeout(() => {
         let foundTopRated = false;
         data.forEach(place => {
