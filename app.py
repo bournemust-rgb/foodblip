@@ -105,7 +105,22 @@ def search():
         elif busy >= 50: busy_label = "Fairly Busy"
         elif busy >= 30: busy_label = "Moderate"
         else: busy_label = "Quiet"
-
+# Peak times for whole day
+        peak_hours = []
+        for h in range(24):
+            if day >= 5:
+                if 11 <= h <= 14: b = 90
+                elif 18 <= h <= 21: b = 85
+                elif 9 <= h <= 11: b = 60
+                elif 14 <= h <= 18: b = 70
+                else: b = 20
+            else:
+                if 12 <= h <= 14: b = 80
+                elif 18 <= h <= 20: b = 75
+                elif 9 <= h <= 12: b = 40
+                elif 14 <= h <= 18: b = 50
+                else: b = 15
+            peak_hours.append(b)
         # Step 8: Photo
         photo_url = None
         photos = details.get("photos", [])
@@ -131,8 +146,9 @@ def search():
             "busy": busy,
             "busy_label": busy_label,
             "maps_link": f"https://www.google.com/maps/place/?q=place_id:{place_id}",
-            "dest_lat": dest_lat,
-            "dest_lng": dest_lng
+           "dest_lat": dest_lat,
+            "dest_lng": dest_lng,
+            "peak_hours": peak_hours
         })
 
     return jsonify(output)
