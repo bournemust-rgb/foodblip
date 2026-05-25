@@ -368,6 +368,376 @@
     return { text: `⚠️ Unsure (${data.unsure} unsure)`, color: "var(--yellow)" };
   }
 
+  <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Food Blip</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    const firebaseConfig = {
+      apiKey: "AIzaSyATNHXHDRokeeiP6sjzPK1zUeAHKFrEYBQ",
+      authDomain: "foodblip-1a771.firebaseapp.com",
+      projectId: "foodblip-1a771",
+      storageBucket: "foodblip-1a771.firebasestorage.app",
+      messagingSenderId: "548159935659",
+      appId: "1:548159935659:web:884c7adbd4f354900953ee"
+    };
+    const firebaseApp = initializeApp(firebaseConfig);
+    const db = getFirestore(firebaseApp);
+    window._db = db;
+    window._doc = doc;
+    window._getDoc = getDoc;
+    window._setDoc = setDoc;
+    window._updateDoc = updateDoc;
+    window._increment = increment;
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    :root {
+      --bg: #0f0f0f; --card: #1a1a1a; --border: #2a2a2a;
+      --accent: #ff6a00; --accent2: #ff9a44; --text: #f0f0f0;
+      --muted: #888; --green: #4ade80; --red: #f87171; --yellow: #fbbf24;
+      --purple: #a855f7;
+    }
+
+    [data-theme="light"] {
+      --bg: #f5f5f7; --card: #ffffff; --border: #e2e8f0;
+      --accent: #ff6a00; --accent2: #ff9a44; --text: #1e293b;
+      --muted: #64748b; --green: #16a34a; --red: #dc2626; --yellow: #d97706;
+      --purple: #7c3aed;
+    }
+
+    body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; padding: 0 16px 80px; transition: background 0.3s, color 0.3s; }
+    header { text-align: center; padding: 48px 0 32px; position: relative; }
+    header p { color: var(--muted); margin-top: 8px; font-size: 1rem; }
+    
+    .theme-toggle-btn { position: absolute; top: 16px; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 50%; width: 44px; height: 44px; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .theme-toggle-btn:hover { border-color: var(--accent); transform: scale(1.05); }
+
+    .search-box { max-width: 640px; margin: 0 auto 16px; display: flex; flex-direction: column; gap: 12px; }
+    .search-box input { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; color: var(--text); font-size: 1rem; font-family: 'DM Sans', sans-serif; outline: none; transition: border 0.2s, background 0.2s; }
+    .search-box input:focus { border-color: var(--accent); }
+    .search-box input::placeholder { color: var(--muted); }
+    .search-box button { background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 12px; padding: 14px; color: #fff; font-size: 1rem; font-weight: 700; font-family: 'Syne', sans-serif; cursor: pointer; transition: opacity 0.2s; }
+    .search-box button:hover { opacity: 0.88; }
+    
+    .history-container { max-width: 640px; margin: 0 auto 32px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .history-label { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); font-family: 'Syne', sans-serif; }
+    .history-pill { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 6px 14px; font-size: 0.8rem; font-family: 'DM Sans', sans-serif; color: var(--text); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 4px; }
+    .history-pill:hover { border-color: var(--accent); background: rgba(255, 106, 0, 0.05); }
+
+    #results { max-width: 960px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 20px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s; }
+    .card:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+    .card-photo { width: 100%; height: 160px; object-fit: cover; background: var(--border); transition: opacity 0.3s; }
+    .card-photo-placeholder { width: 100%; height: 160px; background: linear-gradient(135deg, #1f1f1f, #2a2a2a); display: flex; align-items: center; justify-content: center; font-size: 2.5rem; }
+    .card-body { padding: 16px; flex: 1; display: flex; flex-direction: column; gap: 12px; }
+    .card-name { font-family: 'Syne', sans-serif; font-size: 1.05rem; font-weight: 700; line-height: 1.3; }
+    .card-address { color: var(--muted); font-size: 0.8rem; line-height: 1.4; }
+    .rating-row { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+    .stars { color: var(--accent); font-weight: 700; }
+    .review-count { color: var(--muted); font-size: 0.78rem; }
+    .distance-row { display: flex; align-items: center; gap: 6px; font-size: 0.83rem; color: var(--muted); }
+    .distance-row span { color: var(--text); font-weight: 500; }
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .card-footer a { flex: 1; display: block; text-align: center; border-radius: 10px; padding: 9px 6px; text-decoration: none; font-weight: 700; font-size: 0.78rem; font-family: 'Syne', sans-serif; transition: background 0.2s, color 0.2s; }
+    .btn-maps { background: transparent; border: 1px solid var(--accent); color: var(--accent); }
+    .btn-maps:hover { background: var(--accent); color: #fff; }
+    .btn-route { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; border: none; }
+    .btn-route:hover { opacity: 0.85; }
+    #status { text-align: center; color: var(--muted); font-size: 0.95rem; margin: 20px 0; }
+    .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    footer { text-align: center; padding: 20px 16px 24px; margin-top: 40px; border-top: 1px solid var(--border); }
+    .progress-bar { position: fixed; top: 0; left: 0; height: 3px; background: linear-gradient(90deg, #F47B20, #CC2529); z-index: 9999; transition: width 0.3s ease; }
+    
+    .emoji-loader { text-align: center; padding: 32px 0 16px; width: 100%; display: block; }
+    .emoji-loader span { font-size: 2.2rem; display: inline-block; animation: bounce 0.8s ease-in-out infinite; transform-origin: bottom center; }
+    .emoji-loader span:nth-child(2) { animation-delay: 0.15s; }
+    .emoji-loader span:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0) scaleY(1); }
+      40% { transform: translateY(-18px) scaleY(1.05); }
+      70% { transform: translateY(2px) scaleY(0.95); }
+    }
+    .emoji-loader p { color: var(--muted); font-size: 0.85rem; margin-top: 12px; font-weight: 500; }
+    
+    .tag { background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 20px; padding: 3px 11px; font-size: 0.76rem; color: var(--muted); }
+    [data-theme="light"] .tag { background: rgba(0,0,0,0.03); }
+    .tag.open { color: var(--green); border-color: var(--green); }
+    .tag.closed { color: var(--red); border-color: var(--red); }
+    
+    .busy-section { display: flex; flex-direction: column; gap: 6px; }
+    .busy-label-row { display: flex; justify-content: space-between; font-size: 0.8rem; }
+    .busy-label-row span:first-child { color: var(--muted); }
+    .busy-gauge-track { width: 100%; height: 10px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .busy-gauge-fill { height: 100%; border-radius: 99px; width: 0% !important; transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1); }
+    .busy-gauge-fill.animated { width: var(--target-width) !important; }
+    .busy-quiet { background: var(--green); }
+    .busy-moderate { background: var(--yellow); }
+    .busy-fairly { background: #f97316; }
+    .busy-very { background: var(--red); }
+    
+    /* Crowdsourcing Live Update Styles */
+    .crowd-live-card { background: rgba(168, 85, 247, 0.1); border: 1px dashed var(--purple); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .crowd-live-header { display: flex; justify-content: space-between; font-size: 0.75rem; font-weight: bold; color: var(--purple); font-family: 'Syne', sans-serif; }
+    .crowd-live-buttons { display: flex; gap: 4px; }
+    .crowd-btn { flex: 1; border: 1px solid var(--border); background: var(--card); color: var(--text); border-radius: 6px; padding: 5px 2px; font-size: 0.7rem; cursor: pointer; font-weight: 500; transition: all 0.2s; }
+    .crowd-btn:hover { border-color: var(--purple); background: rgba(168, 85, 247, 0.05); }
+
+    .halaal-section { background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    [data-theme="light"] .halaal-section { background: rgba(0,0,0,0.02); }
+    .halaal-title { font-size: 0.8rem; color: var(--muted); }
+    .halaal-verdict { font-size: 0.9rem; font-weight: 700; }
+    .halaal-votes { font-size: 0.75rem; color: var(--muted); }
+    .halaal-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+    .halaal-btn { flex: 1; border: none; border-radius: 8px; padding: 7px 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: opacity 0.2s; }
+    .halaal-btn:hover { opacity: 0.8; }
+    .btn-yes { background: #14532d; color: #4ade80; }
+    .btn-no { background: #450a0a; color: #f87171; }
+    .btn-unsure { background: #292524; color: #fbbf24; }
+    .card-footer { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle Theme">🌓</button>
+    <img src="https://i.postimg.cc/HsNrmL41/logo-2-transp.png" alt="Food Blip Logo" style="width:min(880px, 90vw); height:auto; object-fit:contain; margin:0 auto 8px; display:block;"/>
+    <h1 style="font-family:'Syne',sans-serif; font-size:3rem; font-weight:800; background:linear-gradient(135deg,#F47B20,#CC2529); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; letter-spacing:-1px; margin-bottom:8px;">Food Blip</h1>
+    <p>Find out how busy a spot is before you drive there 🔥</p>
+  </header>
+
+  <div class="search-box">
+    <input type="text" id="query" placeholder="Restaurant name (e.g. Nandos)"/>
+    <div style="display:flex; gap:8px;">
+      <input type="text" id="location" placeholder="Your area (e.g. Kuilsriver, Cape Town)" style="flex:1;"/>
+      <button onclick="detectLocation()" style="background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; color:var(--accent); font-size:1.2rem; cursor:pointer;">📍</button>
+    </div>
+    <button onclick="search()">🔍 Check It Out</button>
+    <button onclick="surpriseMe()" style="background:linear-gradient(135deg,#7c3aed,#a855f7); border:none; border-radius:12px; padding:14px; color:#fff; font-size:1rem; font-weight:700; font-family:'Syne',sans-serif; cursor:pointer; transition:opacity 0.2s;">🎲 Surprise Me</button>
+  </div>
+
+  <div class="history-container" id="historyContainer" style="display: none;">
+    <span class="history-label">Recents:</span>
+    <div id="historyPills" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+  </div>
+
+  <div style="max-width:960px; margin:0 auto 20px;">
+    <button onclick="toggleLeaderboard()" id="leaderboardBtn" style="background:var(--card); border:1px solid var(--border); border-radius:12px; padding:10px 18px; color:var(--muted); font-size:0.85rem; font-weight:700; font-family:'Syne',sans-serif; cursor:pointer; transition:all 0.2s;">🏆 Show Local Leaderboard</button>
+    <div id="leaderboard" style="display:none; margin-top:16px; background:var(--card); border:1px solid var(--border); border-radius:16px; padding:16px;">
+      <div style="font-family:'Syne',sans-serif; font-size:1rem; font-weight:800; margin-bottom:12px; background:linear-gradient(135deg,#F47B20,#CC2529); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">🏆 Top Spots — Community Ranked</div>
+      <div id="leaderboardList" style="display:flex; flex-direction:column; gap:8px;">
+        <div style="color:var(--muted); font-size:0.85rem;">Search for restaurants first to build the leaderboard!</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="status"></div>
+
+  <div style="max-width:960px; margin:0 auto 16px; display:flex; gap:8px;">
+    <button id="halaalFilterBtn" onclick="toggleHalaalFilter()" style="background:var(--card); border:1px solid var(--border); border-radius:12px; padding:10px 18px; color:var(--muted); font-size:0.85rem; font-weight:700; font-family:'Syne',sans-serif; cursor:pointer; transition:all 0.2s;">🕌 Show Halaal Only</button>
+  </div>
+
+  <div id="results"></div>
+
+  <div class="progress-bar" id="progressBar" style="width:0; display:none;"></div>
+
+  <footer>
+    <img src="https://i.postimg.cc/gjNzkGw2/footer-obs.png" alt="Created by" style="width:min(320px, 80vw); height:auto; opacity:0.1;"/>
+  </footer>
+
+<script type="module">
+
+  /* ── Core Configuration Init ── */
+  document.addEventListener("DOMContentLoaded", () => {
+    initTheme();
+    renderHistory();
+  });
+
+  /* ── Theme Engine ── */
+  window.toggleTheme = function() {
+    const currentTheme = document.documentElement.getAttribute("data-theme") || "dark";
+    const targetTheme = currentTheme === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", targetTheme);
+    localStorage.setItem("theme-preference", targetTheme);
+  };
+
+  function initTheme() {
+    const savedTheme = localStorage.getItem("theme-preference") || "dark";
+    document.documentElement.setAttribute("data-theme", savedTheme);
+  }
+
+  /* ── Recent History Engine ── */
+  function saveSearchToHistory(query, location) {
+    if (!query || !location) return;
+    const historyItem = { query, location, label: `${query} (${location.split(',')[0].trim()})` };
+    let list = JSON.parse(localStorage.getItem("fb-history")) || [];
+    
+    list = list.filter(item => !(item.query.toLowerCase() === query.toLowerCase() && item.location.toLowerCase() === location.toLowerCase()));
+    list.unshift(historyItem);
+    
+    if (list.length > 4) list.pop();
+    
+    localStorage.setItem("fb-history", JSON.stringify(list));
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const container = document.getElementById("historyContainer");
+    const pillsWrap = document.getElementById("historyPills");
+    const list = JSON.parse(localStorage.getItem("fb-history")) || [];
+    
+    if (list.length === 0) {
+      container.style.display = "none";
+      return;
+    }
+    
+    container.style.display = "flex";
+    pillsWrap.innerHTML = list.map((item, index) => `
+      <button class="history-pill" onclick="triggerHistorySearch(${index})">
+        ⏱️ ${escapeHtml(item.label)}
+      </button>
+    `).join("");
+  }
+
+  window.triggerHistorySearch = function(index) {
+    const list = JSON.parse(localStorage.getItem("fb-history")) || [];
+    if (!list[index]) return;
+    document.getElementById("query").value = list[index].query;
+    document.getElementById("location").value = list[index].location;
+    window.search();
+  };
+
+  function escapeHtml(str) {
+    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+  }
+
+  /* ── WhatsApp Custom Formatter ── */
+  function getWhatsAppShareUrl(place) {
+    const busyPercentage = place.busy || 0;
+    let visualStatusIndicator = "🟢 Quiet Line";
+    if (busyPercentage >= 75) visualStatusIndicator = "🔴 Packed / High Wait Time";
+    else if (busyPercentage >= 50) visualStatusIndicator = "🟠 Moderately Busy";
+    else if (busyPercentage >= 30) visualStatusIndicator = "🟡 Medium Line";
+
+    const textTemplate = `⚡ *LIVE TRAFFIC RADAR via Food Blip* ⚡\n\n🍔 *${place.name}*\n📍 _${place.address}_\n\n📊 *Live Meter:* ${busyPercentage}% capacity\n🚦 *Status:* ${visualStatusIndicator} (${place.busy_label})\n\n⭐ *Rating:* ${place.rating} (${place.reviews.toLocaleString()} reviews)\n🚗 *Drive:* ${place.distance} away (${place.drive_time} travel)\n\nCheck live updates on Food Blip 👉 https://foodblip.vercel.app`;
+    return `https://wa.me/?text=${encodeURIComponent(textTemplate)}`;
+  }
+
+  /* ── Firebase helpers ── */
+  function waitForFirebase() {
+    return new Promise(resolve => {
+      if (window._db) return resolve();
+      const id = setInterval(() => { if (window._db) { clearInterval(id); resolve(); } }, 100);
+    });
+  }
+
+  async function loadHalaal(placeId) {
+    await waitForFirebase();
+    const ref  = window._doc(window._db, "halaal", placeId);
+    const snap = await window._getDoc(ref);
+    return snap.exists() ? snap.data() : { yes: 0, no: 0, unsure: 0 };
+  }
+
+  async function voteHalaal(placeId, vote) {
+    await waitForFirebase();
+    const ref  = window._doc(window._db, "halaal", placeId);
+    const snap = await window._getDoc(ref);
+    if (snap.exists()) {
+      await window._updateDoc(ref, { [vote]: window._increment(1) });
+    } else {
+      const data = { yes: 0, no: 0, unsure: 0 };
+      data[vote] = 1;
+      await window._setDoc(ref, data);
+    }
+    return loadHalaal(placeId);
+  }
+
+  async function loadReactions(placeId) {
+    await waitForFirebase();
+    const ref  = window._doc(window._db, "reactions", placeId);
+    const snap = await window._getDoc(ref);
+    return snap.exists() ? snap.data() : { fire: 0, solid: 0, skip: 0 };
+  }
+
+  /* ── Crowdsourcing Live Traffic Node DB Interactions ── */
+  async function loadLiveTraffic(placeId) {
+    await waitForFirebase();
+    const ref = window._doc(window._db, "live_traffic", placeId);
+    const snap = await window._getDoc(ref);
+    return snap.exists() ? snap.data() : { quiet: 0, moderate: 0, packed: 0 };
+  }
+
+  window.submitLiveStatus = async function (placeId, statusType) {
+    await waitForFirebase();
+    const ref = window._doc(window._db, "live_traffic", placeId);
+    const snap = await window._getDoc(ref);
+    if (snap.exists()) {
+      await window._updateDoc(ref, { [statusType]: window._increment(1) });
+    } else {
+      const data = { quiet: 0, moderate: 0, packed: 0 };
+      data[statusType] = 1;
+      await window._setDoc(ref, data);
+    }
+    const updated = await loadLiveTraffic(placeId);
+    updateLiveTrafficUI(placeId, updated);
+  };
+
+  function getLiveTrafficVerdict(data) {
+    const total = data.quiet + data.moderate + data.packed;
+    if (total === 0) return { text: "No live updates yet today", color: "var(--muted)" };
+    if (data.quiet > data.moderate && data.quiet > data.packed) return { text: `🟢 Users say: No Line (${data.quiet} votes)`, color: "var(--green)" };
+    if (data.moderate > data.quiet && data.moderate > data.packed) return { text: `🟠 Users say: ~10min Wait (${data.moderate} votes)`, color: "var(--yellow)" };
+    return { text: `🔴 Users say: Packed / 20m+ (${data.packed} votes)`, color: "var(--red)" };
+  }
+
+  function updateLiveTrafficUI(placeId, data) {
+    const container = document.getElementById(`live-verdict-${placeId}`);
+    if (container) {
+      const verdict = getLiveTrafficVerdict(data);
+      container.textContent = verdict.text;
+      container.style.color = verdict.color;
+    }
+  }
+
+  /* ── Reaction handler ── */
+  window.react = async function (placeId, type) {
+    await waitForFirebase();
+    const ref  = window._doc(window._db, "reactions", placeId);
+    const snap = await window._getDoc(ref);
+    if (snap.exists()) {
+      await window._updateDoc(ref, { [type]: window._increment(1) });
+    } else {
+      const data = { fire: 0, solid: 0, skip: 0 };
+      data[type] = 1;
+      await window._setDoc(ref, data);
+    }
+    const updated = await loadReactions(placeId);
+    document.getElementById(`fire-${placeId}`).textContent  = `🔥 Amazing (${updated.fire})`;
+    document.getElementById(`solid-${placeId}`).textContent = `👍 Solid (${updated.solid})`;
+    document.getElementById(`skip-${placeId}`).textContent  = `👎 Skip It (${updated.skip})`;
+  };
+
+  /* ── Helpers ── */
+  function getHalaalVerdict(data, systemGuess) {
+    const total = data.yes + data.no + data.unsure;
+    if (total === 0) {
+      return systemGuess === "likely"
+        ? { text: "✅ Likely Halaal", color: "var(--green)" }
+        : { text: "❓ Unknown — vote below", color: "var(--muted)" };
+    }
+    if (data.yes > data.no && data.yes > data.unsure) return { text: `✅ Halaal (${data.yes} votes)`, color: "var(--green)" };
+    if (data.no  > data.yes && data.no  > data.unsure) return { text: `❌ Not Halaal (${data.no} votes)`, color: "var(--red)" };
+    return { text: `⚠️ Unsure (${data.unsure} unsure)`, color: "var(--yellow)" };
+  }
+
   function getBusyClass(busy) {
     if (busy >= 75) return "busy-very";
     if (busy >= 50) return "busy-fairly";
@@ -377,8 +747,8 @@
 
   function getRoute(userLat, userLng, destLat, destLng) {
     return (userLat && userLng)
-      ? `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${destLat},${destLng}`
-      : `https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}`;
+      ? `https://maps.google.com/?saddr=${userLat},${userLng}&daddr=${destLat},${destLng}`
+      : `https://maps.google.com/?daddr=${destLat},${destLng}`;
   }
 
   /* ── Progress bar helpers ── */
@@ -523,7 +893,6 @@
           ? `<span class="tag open">🟢 Open Now</span>`
           : `<span class="tag closed">🔴 Closed</span>`;
           
-        // Upgraded image layout to use loading="lazy" for mobile speed optimization
         const photoEl = place.photo_url
           ? `<img class="card-photo" src="${place.photo_url}" loading="lazy" onerror="this.onerror=null;this.parentElement.innerHTML='<div class=\\'card-photo-placeholder\\'>🍽️</div>';" alt="${place.name}"/>`
           : `<div class="card-photo-placeholder">🍽️</div>`;
@@ -593,9 +962,9 @@
                 <div class="halaal-verdict" style="color:${verdict.color}">${verdict.text}</div>
                 <div class="halaal-votes">Yes: ${halaalData.yes}  |  No: ${halaalData.no}  |  Unsure: ${halaalData.unsure}</div>
                 <div class="halaal-buttons">
-                  <button class="halaal-btn btn-yes"    onclick="vote('${place.place_id}','yes','${place.halaal}')">✅ Halaal</button>
-                  <button class="halaal-btn btn-no"     onclick="vote('${place.place_id}','no','${place.halaal}')">❌ Not Halaal</button>
-                  <button class="halaal-btn btn-unsure" onclick="vote('${place.place_id}','unsure','${place.halaal}')">⚠️ Not Sure</button>
+                  <button class="halaal-btn btn-yes"    onclick="window.vote('${place.place_id}','yes','${place.halaal}')">✅ Halaal</button>
+                  <button class="halaal-btn btn-no"     onclick="window.vote('${place.place_id}','no','${place.halaal}')">❌ Not Halaal</button>
+                  <button class="halaal-btn btn-unsure" onclick="window.vote('${place.place_id}','unsure','${place.halaal}')">⚠️ Not Sure</button>
                 </div>
               </div>
             </div>
@@ -684,7 +1053,7 @@
     navigator.geolocation.getCurrentPosition(
       async pos => {
         const { latitude: lat, longitude: lng } = pos.coords;
-        const res    = await fetch://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+        const res    = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
         const data   = await res.json();
         const suburb = data.address.suburb || data.address.town || data.address.city || "";
         const city   = data.address.city   || data.address.state || "";
