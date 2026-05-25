@@ -245,7 +245,12 @@
    <button onclick="search()">🔍 Check It Out</button>
     <button onclick="surpriseMe()" style="background:linear-gradient(135deg,#7c3aed,#a855f7); border:none; border-radius:12px; padding:14px; color:#fff; font-size:1rem; font-weight:700; font-family:'Syne',sans-serif; cursor:pointer; transition:opacity 0.2s;">🎲 Surprise Me</button>
   </div>
-  <div id="status"></div>
+<div id="status"></div>
+  <div style="max-width:960px; margin:0 auto 16px; display:flex; gap:8px;">
+    <button id="halaalFilterBtn" onclick="toggleHalaalFilter()" style="background:var(--card); border:1px solid var(--border); border-radius:12px; padding:10px 18px; color:var(--muted); font-size:0.85rem; font-weight:700; font-family:'Syne',sans-serif; cursor:pointer; transition:all 0.2s;">
+      🕌 Show Halaal Only
+    </button>
+  </div>
   <div id="results"></div>
 
   <!-- Footer -->
@@ -422,6 +427,33 @@
 
   document.getElementById("query").addEventListener("keyup",    e => { if (e.key === "Enter") window.search(); });
   document.getElementById("location").addEventListener("keyup", e => { if (e.key === "Enter") window.search(); });
+let halaalFilterOn = false;
+
+  window.toggleHalaalFilter = function () {
+    halaalFilterOn = !halaalFilterOn;
+    const btn = document.getElementById("halaalFilterBtn");
+    if (halaalFilterOn) {
+      btn.style.background = "#14532d";
+      btn.style.color = "#4ade80";
+      btn.style.borderColor = "#4ade80";
+      btn.textContent = "✅ Halaal Only — ON";
+    } else {
+      btn.style.background = "var(--card)";
+      btn.style.color = "var(--muted)";
+      btn.style.borderColor = "var(--border)";
+      btn.textContent = "🕌 Show Halaal Only";
+    }
+    const cards = document.querySelectorAll(".card");
+    cards.forEach(card => {
+      const verdict = card.querySelector(".halaal-verdict");
+      if (halaalFilterOn) {
+        const isHalaal = verdict && verdict.textContent.includes("✅");
+        card.style.display = isHalaal ? "flex" : "none";
+      } else {
+        card.style.display = "flex";
+      }
+    });
+  };
 window.surpriseMe = async function () {
     const location = document.getElementById("location").value.trim();
     if (!location) {
