@@ -54,18 +54,9 @@
       padding: 0 16px 80px;
     }
 
-    /* ── Header ── */
-    header {
-      text-align: center;
-      padding: 48px 0 32px;
-    }
-    header p {
-      color: var(--muted);
-      margin-top: 8px;
-      font-size: 1rem;
-    }
+    header { text-align: center; padding: 48px 0 32px; }
+    header p { color: var(--muted); margin-top: 8px; font-size: 1rem; }
 
-    /* ── Search Box ── */
     .search-box {
       max-width: 640px;
       margin: 0 auto 40px;
@@ -100,7 +91,6 @@
     }
     .search-box button:hover { opacity: 0.88; }
 
-    /* ── Results Grid ── */
     #results {
       max-width: 960px;
       margin: 0 auto;
@@ -109,7 +99,6 @@
       gap: 20px;
     }
 
-    /* ── Card ── */
     .card {
       background: var(--card);
       border: 1px solid var(--border);
@@ -149,18 +138,16 @@
     .tag.open { color: var(--green); border-color: var(--green); }
     .tag.closed { color: var(--red); border-color: var(--red); }
 
-    /* ── Busy Gauge ── */
     .busy-section { display: flex; flex-direction: column; gap: 6px; }
     .busy-label-row { display: flex; justify-content: space-between; font-size: 0.8rem; }
     .busy-label-row span:first-child { color: var(--muted); }
     .busy-gauge-track { width: 100%; height: 10px; background: #2a2a2a; border-radius: 99px; overflow: hidden; }
     .busy-gauge-fill { height: 100%; border-radius: 99px; transition: width 1s ease; }
-    .busy-quiet   { background: var(--green); }
-    .busy-moderate{ background: var(--yellow); }
-    .busy-fairly  { background: #f97316; }
-    .busy-very    { background: var(--red); }
+    .busy-quiet    { background: var(--green); }
+    .busy-moderate { background: var(--yellow); }
+    .busy-fairly   { background: #f97316; }
+    .busy-very     { background: var(--red); }
 
-    /* ── Halaal Section ── */
     .halaal-section {
       background: #111;
       border: 1px solid var(--border);
@@ -179,11 +166,10 @@
       transition: opacity 0.2s;
     }
     .halaal-btn:hover { opacity: 0.8; }
-    .btn-yes   { background: #14532d; color: var(--green); }
-    .btn-no    { background: #450a0a; color: var(--red); }
-    .btn-unsure{ background: #292524; color: var(--yellow); }
+    .btn-yes    { background: #14532d; color: var(--green); }
+    .btn-no     { background: #450a0a; color: var(--red); }
+    .btn-unsure { background: #292524; color: var(--yellow); }
 
-    /* ── Card Footer ── */
     .card-footer {
       padding: 12px 16px;
       border-top: 1px solid var(--border);
@@ -201,7 +187,6 @@
     .btn-route { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; border: none; }
     .btn-route:hover { opacity: 0.85; }
 
-    /* ── Status & Spinner ── */
     #status { text-align: center; color: var(--muted); font-size: 0.95rem; margin: 20px 0; }
     .spinner {
       display: inline-block; width: 18px; height: 18px;
@@ -211,7 +196,6 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── Footer ── */
     footer {
       text-align: center;
       padding: 20px 16px 24px;
@@ -242,15 +226,32 @@
       <input type="text" id="location" placeholder="Your area (e.g. Kuilsriver, Cape Town)" style="flex:1;"/>
       <button onclick="detectLocation()" style="background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; color:var(--accent); font-size:1.2rem; cursor:pointer;">📍</button>
     </div>
-   <button onclick="search()">🔍 Check It Out</button>
+    <button onclick="search()">🔍 Check It Out</button>
     <button onclick="surpriseMe()" style="background:linear-gradient(135deg,#7c3aed,#a855f7); border:none; border-radius:12px; padding:14px; color:#fff; font-size:1rem; font-weight:700; font-family:'Syne',sans-serif; cursor:pointer; transition:opacity 0.2s;">🎲 Surprise Me</button>
   </div>
-<div id="status"></div>
+
+  <!-- Leaderboard -->
+  <div style="max-width:960px; margin:0 auto 20px;">
+    <button onclick="toggleLeaderboard()" id="leaderboardBtn" style="background:var(--card); border:1px solid var(--border); border-radius:12px; padding:10px 18px; color:var(--muted); font-size:0.85rem; font-weight:700; font-family:'Syne',sans-serif; cursor:pointer; transition:all 0.2s;">
+      🏆 Show Local Leaderboard
+    </button>
+    <div id="leaderboard" style="display:none; margin-top:16px; background:var(--card); border:1px solid var(--border); border-radius:16px; padding:16px;">
+      <div style="font-family:'Syne',sans-serif; font-size:1rem; font-weight:800; margin-bottom:12px; background:linear-gradient(135deg,#F47B20,#CC2529); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">🏆 Top Spots — Community Ranked</div>
+      <div id="leaderboardList" style="display:flex; flex-direction:column; gap:8px;">
+        <div style="color:var(--muted); font-size:0.85rem;">Search for restaurants first to build the leaderboard!</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="status"></div>
+
+  <!-- Halaal Filter -->
   <div style="max-width:960px; margin:0 auto 16px; display:flex; gap:8px;">
     <button id="halaalFilterBtn" onclick="toggleHalaalFilter()" style="background:var(--card); border:1px solid var(--border); border-radius:12px; padding:10px 18px; color:var(--muted); font-size:0.85rem; font-weight:700; font-family:'Syne',sans-serif; cursor:pointer; transition:all 0.2s;">
       🕌 Show Halaal Only
     </button>
   </div>
+
   <div id="results"></div>
 
   <!-- Footer -->
@@ -263,19 +264,21 @@
   </footer>
 
 <script type="module">
+
+  // ── Firebase helpers ──
   function waitForFirebase(cb) {
     if (window._db) cb();
     else setTimeout(() => waitForFirebase(cb), 100);
   }
 
   async function loadHalaal(placeId) {
-    const ref = window._doc(window._db, "halaal", placeId);
+    const ref  = window._doc(window._db, "halaal", placeId);
     const snap = await window._getDoc(ref);
     return snap.exists() ? snap.data() : { yes: 0, no: 0, unsure: 0 };
   }
 
   async function voteHalaal(placeId, vote) {
-    const ref = window._doc(window._db, "halaal", placeId);
+    const ref  = window._doc(window._db, "halaal", placeId);
     const snap = await window._getDoc(ref);
     if (snap.exists()) {
       await window._updateDoc(ref, { [vote]: window._increment(1) });
@@ -287,6 +290,29 @@
     return await loadHalaal(placeId);
   }
 
+  async function loadReactions(placeId) {
+    const ref  = window._doc(window._db, "reactions", placeId);
+    const snap = await window._getDoc(ref);
+    return snap.exists() ? snap.data() : { fire: 0, solid: 0, skip: 0 };
+  }
+
+  window.react = async function (placeId, type) {
+    const ref  = window._doc(window._db, "reactions", placeId);
+    const snap = await window._getDoc(ref);
+    if (snap.exists()) {
+      await window._updateDoc(ref, { [type]: window._increment(1) });
+    } else {
+      const data = { fire: 0, solid: 0, skip: 0 };
+      data[type] = 1;
+      await window._setDoc(ref, data);
+    }
+    const updated = await loadReactions(placeId);
+    document.getElementById(`fire-${placeId}`).textContent  = `🔥 Amazing (${updated.fire})`;
+    document.getElementById(`solid-${placeId}`).textContent = `👍 Solid (${updated.solid})`;
+    document.getElementById(`skip-${placeId}`).textContent  = `👎 Skip It (${updated.skip})`;
+  };
+
+  // ── Halaal helpers ──
   function getHalaalVerdict(data, systemGuess) {
     const total = data.yes + data.no + data.unsure;
     if (total === 0) {
@@ -295,7 +321,7 @@
         : { text: "❓ Unknown — vote below", color: "#888" };
     }
     if (data.yes > data.no && data.yes > data.unsure) return { text: `✅ Halaal (${data.yes} votes)`, color: "#4ade80" };
-    if (data.no > data.yes && data.no > data.unsure) return { text: `❌ Not Halaal (${data.no} votes)`, color: "#f87171" };
+    if (data.no > data.yes && data.no > data.unsure)  return { text: `❌ Not Halaal (${data.no} votes)`, color: "#f87171" };
     return { text: `⚠️ Unsure (${data.unsure} unsure)`, color: "#fbbf24" };
   }
 
@@ -312,6 +338,70 @@
       : `https://www.google.com/maps/dir//${destLat},${destLng}`;
   }
 
+  // ── Leaderboard ──
+  let leaderboardData = {};
+  let leaderboardOpen = false;
+
+  window.toggleLeaderboard = function () {
+    leaderboardOpen = !leaderboardOpen;
+    const board = document.getElementById("leaderboard");
+    const btn   = document.getElementById("leaderboardBtn");
+    board.style.display    = leaderboardOpen ? "block" : "none";
+    btn.style.background   = leaderboardOpen ? "#1a1a1a" : "var(--card)";
+    btn.style.color        = leaderboardOpen ? "var(--accent)" : "var(--muted)";
+    btn.style.borderColor  = leaderboardOpen ? "var(--accent)" : "var(--border)";
+    btn.textContent        = leaderboardOpen ? "🏆 Hide Leaderboard" : "🏆 Show Local Leaderboard";
+    if (leaderboardOpen) renderLeaderboard();
+  };
+
+  function renderLeaderboard() {
+    const list    = document.getElementById("leaderboardList");
+    const entries = Object.values(leaderboardData);
+    if (entries.length === 0) {
+      list.innerHTML = `<div style="color:var(--muted); font-size:0.85rem;">Search for restaurants first to build the leaderboard!</div>`;
+      return;
+    }
+    entries.sort((a, b) => (b.fire + b.solid) - (a.fire + a.solid));
+    list.innerHTML = entries.slice(0, 5).map((e, i) => `
+      <div style="display:flex; align-items:center; gap:12px; padding:10px; background:#111; border-radius:10px;">
+        <div style="font-family:'Syne',sans-serif; font-size:1.2rem; font-weight:800; color:${i === 0 ? '#F47B20' : i === 1 ? '#888' : i === 2 ? '#cd7f32' : 'var(--muted)'};">
+          ${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}
+        </div>
+        <div style="flex:1;">
+          <div style="font-weight:700; font-size:0.9rem;">${e.name}</div>
+          <div style="color:var(--muted); font-size:0.75rem;">🔥 ${e.fire} Amazing · 👍 ${e.solid} Solid · 👎 ${e.skip} Skip</div>
+        </div>
+        <div style="color:var(--accent); font-weight:700; font-size:0.85rem;">⭐ ${e.rating}</div>
+      </div>
+    `).join("");
+  }
+
+  // ── Halaal Filter ──
+  let halaalFilterOn = false;
+
+  window.toggleHalaalFilter = function () {
+    halaalFilterOn = !halaalFilterOn;
+    const btn = document.getElementById("halaalFilterBtn");
+    if (halaalFilterOn) {
+      btn.style.background  = "#14532d";
+      btn.style.color       = "#4ade80";
+      btn.style.borderColor = "#4ade80";
+      btn.textContent       = "✅ Halaal Only — ON";
+    } else {
+      btn.style.background  = "var(--card)";
+      btn.style.color       = "var(--muted)";
+      btn.style.borderColor = "var(--border)";
+      btn.textContent       = "🕌 Show Halaal Only";
+    }
+    document.querySelectorAll(".card").forEach(card => {
+      const verdict = card.querySelector(".halaal-verdict");
+      card.style.display = halaalFilterOn
+        ? (verdict && verdict.textContent.includes("✅") ? "flex" : "none")
+        : "flex";
+    });
+  };
+
+  // ── Main Search ──
   window.search = async function () {
     const query    = document.getElementById("query").value.trim();
     const location = document.getElementById("location").value.trim();
@@ -349,23 +439,26 @@
 
       for (const place of data) {
         waitForFirebase(async () => {
-const reactionData = await loadReactions(place.place_id);
-          document.getElementById(`fire-${place.place_id}`) && (document.getElementById(`fire-${place.place_id}`).textContent  = `🔥 Amazing (${reactionData.fire})`);
-          document.getElementById(`solid-${place.place_id}`) && (document.getElementById(`solid-${place.place_id}`).textContent = `👍 Solid (${reactionData.solid})`);
-          document.getElementById(`skip-${place.place_id}`) && (document.getElementById(`skip-${place.place_id}`).textContent  = `👎 Skip It (${reactionData.skip})`);
-          const halaalData = await loadHalaal(place.place_id);
-          const verdict    = getHalaalVerdict(halaalData, place.halaal);
-          const busyClass  = getBusyClass(place.busy);
-          const routeUrl   = getRoute(userLat, userLng, place.dest_lat, place.dest_lng);
-          const stars      = place.rating !== "N/A"
+          const halaalData   = await loadHalaal(place.place_id);
+          const reactionData = await loadReactions(place.place_id);
+          const verdict      = getHalaalVerdict(halaalData, place.halaal);
+          const busyClass    = getBusyClass(place.busy);
+          const routeUrl     = getRoute(userLat, userLng, place.dest_lat, place.dest_lng);
+          const stars        = place.rating !== "N/A"
             ? "★".repeat(Math.round(place.rating)) + "☆".repeat(5 - Math.round(place.rating))
             : "—";
-          const openTag  = place.open_now
+          const openTag = place.open_now
             ? `<span class="tag open">🟢 Open Now</span>`
             : `<span class="tag closed">🔴 Closed</span>`;
-          const photoEl  = place.photo_url
+          const photoEl = place.photo_url
             ? `<img class="card-photo" src="${place.photo_url}" alt="${place.name}"/>`
             : `<div class="card-photo-placeholder">🍽️</div>`;
+
+          leaderboardData[place.place_id] = {
+            name: place.name, rating: place.rating,
+            fire: reactionData.fire, solid: reactionData.solid, skip: reactionData.skip
+          };
+          if (leaderboardOpen) renderLeaderboard();
 
           container.innerHTML += `
             <div class="card" id="card-${place.place_id}">
@@ -392,10 +485,10 @@ const reactionData = await loadReactions(place.place_id);
                   </div>
                   <div style="font-size:0.72rem;color:var(--muted)">Based on typical patterns for this time</div>
                 </div>
-<div class="reactions-section" id="reactions-${place.place_id}" style="display:flex; gap:8px; flex-wrap:wrap;">
-                  <button onclick="react('${place.place_id}','fire')" style="flex:1; background:#1a1a1a; border:1px solid #2a2a2a; border-radius:10px; padding:8px; cursor:pointer; font-size:0.8rem; color:#f0f0f0; font-weight:700;" id="fire-${place.place_id}">🔥 Amazing</button>
-                  <button onclick="react('${place.place_id}','solid')" style="flex:1; background:#1a1a1a; border:1px solid #2a2a2a; border-radius:10px; padding:8px; cursor:pointer; font-size:0.8rem; color:#f0f0f0; font-weight:700;" id="solid-${place.place_id}">👍 Solid</button>
-                  <button onclick="react('${place.place_id}','skip')" style="flex:1; background:#1a1a1a; border:1px solid #2a2a2a; border-radius:10px; padding:8px; cursor:pointer; font-size:0.8rem; color:#f0f0f0; font-weight:700;" id="skip-${place.place_id}">👎 Skip It</button>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                  <button onclick="react('${place.place_id}','fire')"  style="flex:1; background:#1a1a1a; border:1px solid #2a2a2a; border-radius:10px; padding:8px; cursor:pointer; font-size:0.8rem; color:#f0f0f0; font-weight:700;" id="fire-${place.place_id}">🔥 Amazing (${reactionData.fire})</button>
+                  <button onclick="react('${place.place_id}','solid')" style="flex:1; background:#1a1a1a; border:1px solid #2a2a2a; border-radius:10px; padding:8px; cursor:pointer; font-size:0.8rem; color:#f0f0f0; font-weight:700;" id="solid-${place.place_id}">👍 Solid (${reactionData.solid})</button>
+                  <button onclick="react('${place.place_id}','skip')"  style="flex:1; background:#1a1a1a; border:1px solid #2a2a2a; border-radius:10px; padding:8px; cursor:pointer; font-size:0.8rem; color:#f0f0f0; font-weight:700;" id="skip-${place.place_id}">👎 Skip It (${reactionData.skip})</button>
                 </div>
                 <div class="halaal-section" id="halaal-${place.place_id}">
                   <div class="halaal-title">🕌 Halaal Status — Community Verified</div>
@@ -408,12 +501,12 @@ const reactionData = await loadReactions(place.place_id);
                   </div>
                 </div>
               </div>
-           <div class="card-footer">
+              <div class="card-footer">
                 <a class="btn-maps" href="${place.maps_link}" target="_blank">📍 View on Maps</a>
                 <a class="btn-route" href="${routeUrl}" target="_blank">🧭 Get Route</a>
               </div>
               <div style="padding:0 12px 12px;">
-                <a href="https://wa.me/?text=${encodeURIComponent(`🍔 *${place.name}*\n⭐ ${place.rating} (${place.reviews} reviews)\n📍 ${place.distance} away · 🚗 ${place.drive_time}\n🕌 Halaal: ${place.halaal}\n\nChecked on Food Blip 👉 https://foodblip.vercel.app`)}" target="_blank" style="display:block; text-align:center; background:#25D366; border-radius:10px; padding:9px; color:#fff; text-decoration:none; font-weight:700; font-size:0.82rem; font-family:'Syne',sans-serif;">
+                <a href="https://wa.me/?text=${encodeURIComponent(`🍔 *${place.name}*\n⭐ ${place.rating} (${place.reviews} reviews)\n📍 ${place.distance} away · 🚗 ${place.drive_time}\n\nChecked on Food Blip 👉 https://foodblip.vercel.app`)}" target="_blank" style="display:block; text-align:center; background:#25D366; border-radius:10px; padding:9px; color:#fff; text-decoration:none; font-weight:700; font-size:0.82rem; font-family:'Syne',sans-serif;">
                   📲 Share on WhatsApp
                 </a>
               </div>
@@ -425,6 +518,7 @@ const reactionData = await loadReactions(place.place_id);
     }
   };
 
+  // ── Vote Halaal ──
   window.vote = async function (placeId, vote, systemGuess) {
     const section   = document.getElementById(`halaal-${placeId}`);
     const verdictEl = section.querySelector(".halaal-verdict");
@@ -433,106 +527,54 @@ const reactionData = await loadReactions(place.place_id);
     waitForFirebase(async () => {
       const updated = await voteHalaal(placeId, vote);
       const verdict = getHalaalVerdict(updated, systemGuess);
-      verdictEl.textContent  = verdict.text;
-      verdictEl.style.color  = verdict.color;
-      votesEl.textContent    = `Yes: ${updated.yes} | No: ${updated.no} | Unsure: ${updated.unsure}`;
+      verdictEl.textContent = verdict.text;
+      verdictEl.style.color = verdict.color;
+      votesEl.textContent   = `Yes: ${updated.yes} | No: ${updated.no} | Unsure: ${updated.unsure}`;
     });
   };
 
-  document.getElementById("query").addEventListener("keyup",    e => { if (e.key === "Enter") window.search(); });
-  document.getElementById("location").addEventListener("keyup", e => { if (e.key === "Enter") window.search(); });
-async function loadReactions(placeId) {
-    const ref  = window._doc(window._db, "reactions", placeId);
-    const snap = await window._getDoc(ref);
-    return snap.exists() ? snap.data() : { fire: 0, solid: 0, skip: 0 };
-  }
-
-  window.react = async function (placeId, type) {
-    const ref  = window._doc(window._db, "reactions", placeId);
-    const snap = await window._getDoc(ref);
-    if (snap.exists()) {
-      await window._updateDoc(ref, { [type]: window._increment(1) });
-    } else {
-      const data = { fire: 0, solid: 0, skip: 0 };
-      data[type] = 1;
-      await window._setDoc(ref, data);
-    }
-    const updated = await loadReactions(placeId);
-    document.getElementById(`fire-${placeId}`).textContent  = `🔥 Amazing (${updated.fire})`;
-    document.getElementById(`solid-${placeId}`).textContent = `👍 Solid (${updated.solid})`;
-    document.getElementById(`skip-${placeId}`).textContent  = `👎 Skip It (${updated.skip})`;
-  };
-let halaalFilterOn = false;
-
-  window.toggleHalaalFilter = function () {
-    halaalFilterOn = !halaalFilterOn;
-    const btn = document.getElementById("halaalFilterBtn");
-    if (halaalFilterOn) {
-      btn.style.background = "#14532d";
-      btn.style.color = "#4ade80";
-      btn.style.borderColor = "#4ade80";
-      btn.textContent = "✅ Halaal Only — ON";
-    } else {
-      btn.style.background = "var(--card)";
-      btn.style.color = "var(--muted)";
-      btn.style.borderColor = "var(--border)";
-      btn.textContent = "🕌 Show Halaal Only";
-    }
-    const cards = document.querySelectorAll(".card");
-    cards.forEach(card => {
-      const verdict = card.querySelector(".halaal-verdict");
-      if (halaalFilterOn) {
-        const isHalaal = verdict && verdict.textContent.includes("✅");
-        card.style.display = isHalaal ? "flex" : "none";
-      } else {
-        card.style.display = "flex";
-      }
-    });
-  };
-window.surpriseMe = async function () {
+  // ── Surprise Me ──
+  window.surpriseMe = async function () {
     const location = document.getElementById("location").value.trim();
-    if (!location) {
-      alert("Please enter or detect your location first!");
-      return;
-    }
+    if (!location) { alert("Please enter or detect your location first!"); return; }
     const queries = ["restaurant", "food", "cafe", "grill", "kitchen"];
-    const random  = queries[Math.floor(Math.random() * queries.length)];
-    document.getElementById("query").value = random;
+    document.getElementById("query").value = queries[Math.floor(Math.random() * queries.length)];
     document.getElementById("status").innerHTML = '<span class="spinner"></span> Finding you something good...';
     document.getElementById("results").innerHTML = "";
     await window.search();
-
-    // After results load pick one random card and highlight it
     setTimeout(() => {
       const cards = document.querySelectorAll(".card");
       if (cards.length > 0) {
         const pick = cards[Math.floor(Math.random() * cards.length)];
-        pick.style.border = "2px solid #a855f7";
-        pick.style.boxShadow = "0 0 20px rgba(168,85,247,0.4)";
+        pick.style.border     = "2px solid #a855f7";
+        pick.style.boxShadow  = "0 0 20px rgba(168,85,247,0.4)";
         pick.scrollIntoView({ behavior: "smooth", block: "center" });
       }
     }, 4000);
   };
+
+  // ── Detect Location ──
   window.detectLocation = function () {
     const btn = document.querySelector("button[onclick='detectLocation()']");
     btn.textContent = "⏳";
     navigator.geolocation.getCurrentPosition(
       async pos => {
         const { latitude: lat, longitude: lng } = pos.coords;
-        const res  = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
-        const data = await res.json();
+        const res    = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+        const data   = await res.json();
         const suburb = data.address.suburb || data.address.town || data.address.city || "";
         const city   = data.address.city   || data.address.state || "";
         document.getElementById("location").value = `${suburb}, ${city}`;
         btn.textContent = "📍";
       },
-      () => {
-        alert("Could not detect location. Please type it manually.");
-        btn.textContent = "📍";
-      }
+      () => { alert("Could not detect location. Please type it manually."); btn.textContent = "📍"; }
     );
   };
-</script>
 
+  // ── Keyboard shortcuts ──
+  document.getElementById("query").addEventListener("keyup",    e => { if (e.key === "Enter") window.search(); });
+  document.getElementById("location").addEventListener("keyup", e => { if (e.key === "Enter") window.search(); });
+
+</script>
 </body>
 </html>
