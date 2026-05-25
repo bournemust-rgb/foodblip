@@ -33,19 +33,20 @@
       --bg: #0f0f0f; --card: #1a1a1a; --border: #2a2a2a;
       --accent: #ff6a00; --accent2: #ff9a44; --text: #f0f0f0;
       --muted: #888; --green: #4ade80; --red: #f87171; --yellow: #fbbf24;
+      --purple: #a855f7;
     }
 
     [data-theme="light"] {
       --bg: #f5f5f7; --card: #ffffff; --border: #e2e8f0;
       --accent: #ff6a00; --accent2: #ff9a44; --text: #1e293b;
       --muted: #64748b; --green: #16a34a; --red: #dc2626; --yellow: #d97706;
+      --purple: #7c3aed;
     }
 
     body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; padding: 0 16px 80px; transition: background 0.3s, color 0.3s; }
     header { text-align: center; padding: 48px 0 32px; position: relative; }
     header p { color: var(--muted); margin-top: 8px; font-size: 1rem; }
     
-    /* Theme Toggle Switch */
     .theme-toggle-btn { position: absolute; top: 16px; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 50%; width: 44px; height: 44px; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
     .theme-toggle-btn:hover { border-color: var(--accent); transform: scale(1.05); }
 
@@ -56,7 +57,6 @@
     .search-box button { background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 12px; padding: 14px; color: #fff; font-size: 1rem; font-weight: 700; font-family: 'Syne', sans-serif; cursor: pointer; transition: opacity 0.2s; }
     .search-box button:hover { opacity: 0.88; }
     
-    /* History Component */
     .history-container { max-width: 640px; margin: 0 auto 32px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     .history-label { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); font-family: 'Syne', sans-serif; }
     .history-pill { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 6px 14px; font-size: 0.8rem; font-family: 'DM Sans', sans-serif; color: var(--text); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 4px; }
@@ -65,9 +65,9 @@
     #results { max-width: 960px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 20px; }
     .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s; }
     .card:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
-    .card-photo { width: 100%; height: 160px; object-fit: cover; background: var(--border); }
+    .card-photo { width: 100%; height: 160px; object-fit: cover; background: var(--border); transition: opacity 0.3s; }
     .card-photo-placeholder { width: 100%; height: 160px; background: linear-gradient(135deg, #1f1f1f, #2a2a2a); display: flex; align-items: center; justify-content: center; font-size: 2.5rem; }
-    .card-body { padding: 16px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
+    .card-body { padding: 16px; flex: 1; display: flex; flex-direction: column; gap: 12px; }
     .card-name { font-family: 'Syne', sans-serif; font-size: 1.05rem; font-weight: 700; line-height: 1.3; }
     .card-address { color: var(--muted); font-size: 0.8rem; line-height: 1.4; }
     .rating-row { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
@@ -86,6 +86,7 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     footer { text-align: center; padding: 20px 16px 24px; margin-top: 40px; border-top: 1px solid var(--border); }
     .progress-bar { position: fixed; top: 0; left: 0; height: 3px; background: linear-gradient(90deg, #F47B20, #CC2529); z-index: 9999; transition: width 0.3s ease; }
+    
     .emoji-loader { text-align: center; padding: 32px 0 16px; width: 100%; display: block; }
     .emoji-loader span { font-size: 2.2rem; display: inline-block; animation: bounce 0.8s ease-in-out infinite; transform-origin: bottom center; }
     .emoji-loader span:nth-child(2) { animation-delay: 0.15s; }
@@ -96,10 +97,12 @@
       70% { transform: translateY(2px) scaleY(0.95); }
     }
     .emoji-loader p { color: var(--muted); font-size: 0.85rem; margin-top: 12px; font-weight: 500; }
+    
     .tag { background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 20px; padding: 3px 11px; font-size: 0.76rem; color: var(--muted); }
     [data-theme="light"] .tag { background: rgba(0,0,0,0.03); }
     .tag.open { color: var(--green); border-color: var(--green); }
     .tag.closed { color: var(--red); border-color: var(--red); }
+    
     .busy-section { display: flex; flex-direction: column; gap: 6px; }
     .busy-label-row { display: flex; justify-content: space-between; font-size: 0.8rem; }
     .busy-label-row span:first-child { color: var(--muted); }
@@ -110,6 +113,14 @@
     .busy-moderate { background: var(--yellow); }
     .busy-fairly { background: #f97316; }
     .busy-very { background: var(--red); }
+    
+    /* Crowdsourcing Live Update Styles */
+    .crowd-live-card { background: rgba(168, 85, 247, 0.1); border: 1px dashed var(--purple); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .crowd-live-header { display: flex; justify-content: space-between; font-size: 0.75rem; font-weight: bold; color: var(--purple); font-family: 'Syne', sans-serif; }
+    .crowd-live-buttons { display: flex; gap: 4px; }
+    .crowd-btn { flex: 1; border: 1px solid var(--border); background: var(--card); color: var(--text); border-radius: 6px; padding: 5px 2px; font-size: 0.7rem; cursor: pointer; font-weight: 500; transition: all 0.2s; }
+    .crowd-btn:hover { border-color: var(--purple); background: rgba(168, 85, 247, 0.05); }
+
     .halaal-section { background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
     [data-theme="light"] .halaal-section { background: rgba(0,0,0,0.02); }
     .halaal-title { font-size: 0.8rem; color: var(--muted); }
@@ -199,11 +210,9 @@
     const historyItem = { query, location, label: `${query} (${location.split(',')[0].trim()})` };
     let list = JSON.parse(localStorage.getItem("fb-history")) || [];
     
-    // Filter duplicates
     list = list.filter(item => !(item.query.toLowerCase() === query.toLowerCase() && item.location.toLowerCase() === location.toLowerCase()));
     list.unshift(historyItem);
     
-    // Keep max 4 entries
     if (list.length > 4) list.pop();
     
     localStorage.setItem("fb-history", JSON.stringify(list));
@@ -237,7 +246,7 @@
   };
 
   function escapeHtml(str) {
-    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    return str.replace(/&/g, "&").replace(/</g, "<").replace(/>/g, ">").replace(/"/g, """).replace(/'/g, "'");
   }
 
   /* ── WhatsApp Custom Formatter ── */
@@ -288,6 +297,46 @@
     return snap.exists() ? snap.data() : { fire: 0, solid: 0, skip: 0 };
   }
 
+  /* ── Crowdsourcing Live Traffic Node DB Interactions ── */
+  async function loadLiveTraffic(placeId) {
+    await waitForFirebase();
+    const ref = window._doc(window._db, "live_traffic", placeId);
+    const snap = await window._getDoc(ref);
+    return snap.exists() ? snap.data() : { quiet: 0, moderate: 0, packed: 0 };
+  }
+
+  window.submitLiveStatus = async function (placeId, statusType) {
+    await waitForFirebase();
+    const ref = window._doc(window._db, "live_traffic", placeId);
+    const snap = await window._getDoc(ref);
+    if (snap.exists()) {
+      await window._updateDoc(ref, { [statusType]: window._increment(1) });
+    } else {
+      const data = { quiet: 0, moderate: 0, packed: 0 };
+      data[statusType] = 1;
+      await window._setDoc(ref, data);
+    }
+    const updated = await loadLiveTraffic(placeId);
+    updateLiveTrafficUI(placeId, updated);
+  };
+
+  function getLiveTrafficVerdict(data) {
+    const total = data.quiet + data.moderate + data.packed;
+    if (total === 0) return { text: "No live updates yet today", color: "var(--muted)" };
+    if (data.quiet > data.moderate && data.quiet > data.packed) return { text: `🟢 Users say: No Line (${data.quiet} votes)`, color: "var(--green)" };
+    if (data.moderate > data.quiet && data.moderate > data.packed) return { text: `🟠 Users say: ~10min Wait (${data.moderate} votes)`, color: "var(--yellow)" };
+    return { text: `🔴 Users say: Packed / 20m+ (${data.packed} votes)`, color: "var(--red)" };
+  }
+
+  function updateLiveTrafficUI(placeId, data) {
+    const container = document.getElementById(`live-verdict-${placeId}`);
+    if (container) {
+      const verdict = getLiveTrafficVerdict(data);
+      container.textContent = verdict.text;
+      container.style.color = verdict.color;
+    }
+  }
+
   /* ── Reaction handler ── */
   window.react = async function (placeId, type) {
     await waitForFirebase();
@@ -329,7 +378,7 @@
   function getRoute(userLat, userLng, destLat, destLng) {
     return (userLat && userLng)
       ? `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${destLat},${destLng}`
-      : `https://www.google.com/maps/search/?api=1&query=${destLat},${destLng}`;
+      : `https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}`;
   }
 
   /* ── Progress bar helpers ── */
@@ -456,24 +505,29 @@
       document.getElementById("status").innerHTML = `Found <strong>${data.length}</strong> spots`;
 
       for (const place of data) {
-        const [halaalData, reactionData] = await Promise.all([
+        const [halaalData, reactionData, liveTrafficData] = await Promise.all([
           loadHalaal(place.place_id),
-          loadReactions(place.place_id)
+          loadReactions(place.place_id),
+          loadLiveTraffic(place.place_id)
         ]);
 
-        const verdict   = getHalaalVerdict(halaalData, place.halaal);
-        const busyClass = getBusyClass(place.busy);
-        const routeUrl  = getRoute(userLat, userLng, place.dest_lat, place.dest_lng);
-        const waUrl     = getWhatsAppShareUrl(place);
-        const stars     = place.rating !== "N/A"
+        const verdict       = getHalaalVerdict(halaalData, place.halaal);
+        const liveVerdict   = getLiveTrafficVerdict(liveTrafficData);
+        const busyClass     = getBusyClass(place.busy);
+        const routeUrl      = getRoute(userLat, userLng, place.dest_lat, place.dest_lng);
+        const waUrl         = getWhatsAppShareUrl(place);
+        const stars         = place.rating !== "N/A"
           ? "★".repeat(Math.round(place.rating)) + "☆".repeat(5 - Math.round(place.rating))
           : "—";
         const openTag = place.open_now
           ? `<span class="tag open">🟢 Open Now</span>`
           : `<span class="tag closed">🔴 Closed</span>`;
+          
+        // Upgraded image layout to use loading="lazy" for mobile speed optimization
         const photoEl = place.photo_url
-          ? `<img class="card-photo" src="${place.photo_url}" alt="${place.name}"/>`
+          ? `<img class="card-photo" src="${place.photo_url}" loading="lazy" onerror="this.onerror=null;this.parentElement.innerHTML='<div class=\\'card-photo-placeholder\\'>🍽️</div>';" alt="${place.name}"/>`
           : `<div class="card-photo-placeholder">🍽️</div>`;
+          
         const peakBars = (place.peak_hours || []).map((b, h) =>
           `<div title="${h}:00 — ${b}% busy" style="flex:1; height:${b}%; background:${b>=75?'#f87171':b>=50?'#f97316':b>=30?'#fbbf24':'#4ade80'}; border-radius:2px; opacity:${h===new Date().getHours()?1:0.4};"></div>`
         ).join('');
@@ -499,9 +553,22 @@
                 📍 <span>${place.distance}</span>  ·  🚗 <span>${place.drive_time}</span>
               </div>
               <div class="tags">${openTag}</div>
+              
+              <div class="crowd-live-card">
+                <div class="crowd-live-header">
+                  <span>⚡ LIVE CROWD STATUS</span>
+                  <span id="live-verdict-${place.place_id}" style="color:${liveVerdict.color}">${liveVerdict.text}</span>
+                </div>
+                <div class="crowd-live-buttons">
+                  <button class="crowd-btn" onclick="submitLiveStatus('${place.place_id}','quiet')">🟢 No Line</button>
+                  <button class="crowd-btn" onclick="submitLiveStatus('${place.place_id}','moderate')">🟠 ~10m Wait</button>
+                  <button class="crowd-btn" onclick="submitLiveStatus('${place.place_id}','packed')">🔴 20m+ Line</button>
+                </div>
+              </div>
+
               <div class="busy-section">
                 <div class="busy-label-row">
-                  <span>How Busy Right Now</span>
+                  <span>Typical Density Meter</span>
                   <span style="color:var(--accent);font-weight:700">${place.busy_label}</span>
                 </div>
                 <div class="busy-gauge-track">
@@ -514,11 +581,13 @@
                   <span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>11pm</span>
                 </div>
               </div>
+              
               <div style="display:flex; gap:8px; flex-wrap:wrap;">
                 <button onclick="react('${place.place_id}','fire')"  style="flex:1; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:8px; cursor:pointer; font-size:0.8rem; color:var(--text); font-weight:700;" id="fire-${place.place_id}">🔥 Amazing (${reactionData.fire})</button>
                 <button onclick="react('${place.place_id}','solid')" style="flex:1; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:8px; cursor:pointer; font-size:0.8rem; color:var(--text); font-weight:700;" id="solid-${place.place_id}">👍 Solid (${reactionData.solid})</button>
                 <button onclick="react('${place.place_id}','skip')"  style="flex:1; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:8px; cursor:pointer; font-size:0.8rem; color:var(--text); font-weight:700;" id="skip-${place.place_id}">👎 Skip It (${reactionData.skip})</button>
               </div>
+              
               <div class="halaal-section" id="halaal-${place.place_id}">
                 <div class="halaal-title">🕌 Halaal Status — Community Verified</div>
                 <div class="halaal-verdict" style="color:${verdict.color}">${verdict.text}</div>
@@ -615,7 +684,7 @@
     navigator.geolocation.getCurrentPosition(
       async pos => {
         const { latitude: lat, longitude: lng } = pos.coords;
-        const res    = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+        const res    = await fetch://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
         const data   = await res.json();
         const suburb = data.address.suburb || data.address.town || data.address.city || "";
         const city   = data.address.city   || data.address.state || "";
