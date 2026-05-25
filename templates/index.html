@@ -242,7 +242,8 @@
       <input type="text" id="location" placeholder="Your area (e.g. Kuilsriver, Cape Town)" style="flex:1;"/>
       <button onclick="detectLocation()" style="background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; color:var(--accent); font-size:1.2rem; cursor:pointer;">📍</button>
     </div>
-    <button onclick="search()">🔍 Check It Out</button>
+   <button onclick="search()">🔍 Check It Out</button>
+    <button onclick="surpriseMe()" style="background:linear-gradient(135deg,#7c3aed,#a855f7); border:none; border-radius:12px; padding:14px; color:#fff; font-size:1rem; font-weight:700; font-family:'Syne',sans-serif; cursor:pointer; transition:opacity 0.2s;">🎲 Surprise Me</button>
   </div>
   <div id="status"></div>
   <div id="results"></div>
@@ -421,7 +422,30 @@
 
   document.getElementById("query").addEventListener("keyup",    e => { if (e.key === "Enter") window.search(); });
   document.getElementById("location").addEventListener("keyup", e => { if (e.key === "Enter") window.search(); });
+window.surpriseMe = async function () {
+    const location = document.getElementById("location").value.trim();
+    if (!location) {
+      alert("Please enter or detect your location first!");
+      return;
+    }
+    const queries = ["restaurant", "food", "cafe", "grill", "kitchen"];
+    const random  = queries[Math.floor(Math.random() * queries.length)];
+    document.getElementById("query").value = random;
+    document.getElementById("status").innerHTML = '<span class="spinner"></span> Finding you something good...';
+    document.getElementById("results").innerHTML = "";
+    await window.search();
 
+    // After results load pick one random card and highlight it
+    setTimeout(() => {
+      const cards = document.querySelectorAll(".card");
+      if (cards.length > 0) {
+        const pick = cards[Math.floor(Math.random() * cards.length)];
+        pick.style.border = "2px solid #a855f7";
+        pick.style.boxShadow = "0 0 20px rgba(168,85,247,0.4)";
+        pick.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 4000);
+  };
   window.detectLocation = function () {
     const btn = document.querySelector("button[onclick='detectLocation()']");
     btn.textContent = "⏳";
