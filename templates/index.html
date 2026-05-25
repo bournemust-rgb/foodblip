@@ -408,9 +408,14 @@ const reactionData = await loadReactions(place.place_id);
                   </div>
                 </div>
               </div>
-              <div class="card-footer">
+           <div class="card-footer">
                 <a class="btn-maps" href="${place.maps_link}" target="_blank">📍 View on Maps</a>
                 <a class="btn-route" href="${routeUrl}" target="_blank">🧭 Get Route</a>
+              </div>
+              <div style="padding:0 12px 12px;">
+                <a href="https://wa.me/?text=${encodeURIComponent(`🍔 *${place.name}*\n⭐ ${place.rating} (${place.reviews} reviews)\n📍 ${place.distance} away · 🚗 ${place.drive_time}\n🕌 Halaal: ${place.halaal}\n\nChecked on Food Blip 👉 https://foodblip.vercel.app`)}" target="_blank" style="display:block; text-align:center; background:#25D366; border-radius:10px; padding:9px; color:#fff; text-decoration:none; font-weight:700; font-size:0.82rem; font-family:'Syne',sans-serif;">
+                  📲 Share on WhatsApp
+                </a>
               </div>
             </div>`;
         });
