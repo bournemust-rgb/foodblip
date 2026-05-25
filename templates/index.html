@@ -86,15 +86,14 @@
     #status { text-align: center; color: var(--muted); font-size: 0.95rem; margin: 20px 0; }
     .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 8px; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    footer { text-align: center; padding: 20px 16px 24px; margin-top: 40px; border-top: 1px solid var(--border); }.skeleton-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
-   .progress-bar { position: fixed; top: 0; left: 0; height: 3px; background: linear-gradient(90deg, #F47B20, #CC2529); animation: progress 2s ease-in-out infinite; z-index: 9999; }
-@keyframes progress { 0% { width: 0%; } 70% { width: 85%; } 100% { width: 95%; } }
-.emoji-loader { text-align: center; padding: 32px 0 16px; }
-.emoji-loader span { font-size: 2rem; display: inline-block; animation: bounce 0.8s ease-in-out infinite; }
-.emoji-loader span:nth-child(2) { animation-delay: 0.15s; }
-.emoji-loader span:nth-child(3) { animation-delay: 0.3s; }
-@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
-.emoji-loader p { color: var(--muted); font-size: 0.85rem; margin-top: 8px; }
+    footer { text-align: center; padding: 20px 16px 24px; margin-top: 40px; border-top: 1px solid var(--border); }
+    .progress-bar { position: fixed; top: 0; left: 0; height: 3px; background: linear-gradient(90deg, #F47B20, #CC2529); z-index: 9999; transition: width 0.3s ease; }
+    .emoji-loader { text-align: center; padding: 32px 0 16px; }
+    .emoji-loader span { font-size: 2rem; display: inline-block; animation: bounce 0.8s ease-in-out infinite; }
+    .emoji-loader span:nth-child(2) { animation-delay: 0.15s; }
+    .emoji-loader span:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+    .emoji-loader p { color: var(--muted); font-size: 0.85rem; margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -133,25 +132,33 @@
 
   <div id="results"></div>
 
+  <!-- Fixed progress bar element (lives outside #results so it isn't wiped) -->
+  <div class="progress-bar" id="progressBar" style="width:0; display:none;"></div>
+
   <footer>
     <img src="https://i.postimg.cc/gjNzkGw2/footer-obs.png" alt="Created by" style="width:min(320px, 80vw); height:auto; opacity:0.1;"/>
   </footer>
 
 <script type="module">
 
-  function waitForFirebase(cb) {
-    if (window._db) cb();
-    else setTimeout(() => waitForFirebase(cb), 100);
+  /* ── Firebase helpers ── */
+  function waitForFirebase() {
+    return new Promise(resolve => {
+      if (window._db) return resolve();
+      const id = setInterval(() => { if (window._db) { clearInterval(id); resolve(); } }, 100);
+    });
   }
 
   async function loadHalaal(placeId) {
-    const ref = window._doc(window._db, "halaal", placeId);
+    await waitForFirebase();
+    const ref  = window._doc(window._db, "halaal", placeId);
     const snap = await window._getDoc(ref);
     return snap.exists() ? snap.data() : { yes: 0, no: 0, unsure: 0 };
   }
 
   async function voteHalaal(placeId, vote) {
-    const ref = window._doc(window._db, "halaal", placeId);
+    await waitForFirebase();
+    const ref  = window._doc(window._db, "halaal", placeId);
     const snap = await window._getDoc(ref);
     if (snap.exists()) {
       await window._updateDoc(ref, { [vote]: window._increment(1) });
@@ -160,17 +167,20 @@
       data[vote] = 1;
       await window._setDoc(ref, data);
     }
-    return await loadHalaal(placeId);
+    return loadHalaal(placeId);
   }
 
   async function loadReactions(placeId) {
-    const ref = window._doc(window._db, "reactions", placeId);
+    await waitForFirebase();
+    const ref  = window._doc(window._db, "reactions", placeId);
     const snap = await window._getDoc(ref);
     return snap.exists() ? snap.data() : { fire: 0, solid: 0, skip: 0 };
   }
 
+  /* ── Reaction handler (exposed globally) ── */
   window.react = async function (placeId, type) {
-    const ref = window._doc(window._db, "reactions", placeId);
+    await waitForFirebase();
+    const ref  = window._doc(window._db, "reactions", placeId);
     const snap = await window._getDoc(ref);
     if (snap.exists()) {
       await window._updateDoc(ref, { [type]: window._increment(1) });
@@ -185,6 +195,7 @@
     document.getElementById(`skip-${placeId}`).textContent  = `👎 Skip It (${updated.skip})`;
   };
 
+  /* ── Helpers ── */
   function getHalaalVerdict(data, systemGuess) {
     const total = data.yes + data.no + data.unsure;
     if (total === 0) {
@@ -193,7 +204,7 @@
         : { text: "❓ Unknown — vote below", color: "#888" };
     }
     if (data.yes > data.no && data.yes > data.unsure) return { text: `✅ Halaal (${data.yes} votes)`, color: "#4ade80" };
-    if (data.no > data.yes && data.no > data.unsure)  return { text: `❌ Not Halaal (${data.no} votes)`, color: "#f87171" };
+    if (data.no  > data.yes && data.no  > data.unsure) return { text: `❌ Not Halaal (${data.no} votes)`, color: "#f87171" };
     return { text: `⚠️ Unsure (${data.unsure} unsure)`, color: "#fbbf24" };
   }
 
@@ -210,6 +221,21 @@
       : `https://www.google.com/maps/dir//${destLat},${destLng}`;
   }
 
+  /* ── Progress bar helpers ── */
+  function showProgress() {
+    const bar = document.getElementById("progressBar");
+    bar.style.display = "block";
+    bar.style.width   = "0%";
+    requestAnimationFrame(() => { bar.style.width = "85%"; bar.style.transition = "width 2s ease"; });
+  }
+  function finishProgress() {
+    const bar = document.getElementById("progressBar");
+    bar.style.transition = "width 0.2s ease";
+    bar.style.width = "100%";
+    setTimeout(() => { bar.style.display = "none"; bar.style.width = "0"; }, 300);
+  }
+
+  /* ── Leaderboard ── */
   let leaderboardData = {};
   let leaderboardOpen = false;
 
@@ -247,6 +273,7 @@
     `).join("");
   }
 
+  /* ── Halaal filter ── */
   let halaalFilterOn = false;
 
   window.toggleHalaalFilter = function () {
@@ -271,6 +298,7 @@
     });
   };
 
+  /* ── Main search ── */
   window.search = async function () {
     const query    = document.getElementById("query").value.trim();
     const location = document.getElementById("location").value.trim();
@@ -278,16 +306,18 @@
       document.getElementById("status").innerHTML = "⚠️ Please fill in both fields.";
       return;
     }
-   document.getElementById("status").innerHTML = "";
-    document.getElementById("results").innerHTML = `
-      <div class="progress-bar" id="progressBar"></div>
-      <div class="emoji-loader">
+
+    // Clear previous results and show loader
+    document.getElementById("status").innerHTML = "";
+    const container = document.getElementById("results");
+    container.innerHTML = `
+      <div class="emoji-loader" id="emojiLoader">
         <span>🍔</span><span>🌮</span><span>🍕</span>
         <p>Finding spots near you...</p>
-      </div>
-    `;
-    `
+      </div>`;
+    showProgress();
 
+    // Try to get user's geolocation
     let userLat = null, userLng = null;
     try {
       await new Promise(res => {
@@ -302,116 +332,128 @@
     try {
       const res  = await fetch(`/search?query=${encodeURIComponent(query)}&location=${encodeURIComponent(location)}`);
       const data = await res.json();
+
+      // Remove loader and finish progress bar
+      container.innerHTML = "";
+      finishProgress();
+
       if (data.error) {
         document.getElementById("status").innerHTML = `❌ ${data.error} — try a different spelling?`;
         return;
       }
+
       document.getElementById("status").innerHTML = `Found <strong>${data.length}</strong> spots`;
-      const container = document.getElementById("results");
 
+      // Build and inject each card — await Firebase so buttons are live immediately
       for (const place of data) {
-        waitForFirebase(async () => {
-          const halaalData   = await loadHalaal(place.place_id);
-          const reactionData = await loadReactions(place.place_id);
-          const verdict      = getHalaalVerdict(halaalData, place.halaal);
-          const busyClass    = getBusyClass(place.busy);
-          const routeUrl     = getRoute(userLat, userLng, place.dest_lat, place.dest_lng);
-          const stars        = place.rating !== "N/A"
-            ? "★".repeat(Math.round(place.rating)) + "☆".repeat(5 - Math.round(place.rating))
-            : "—";
-          const openTag = place.open_now
-            ? `<span class="tag open">🟢 Open Now</span>`
-            : `<span class="tag closed">🔴 Closed</span>`;
-          const photoEl = place.photo_url
-            ? `<img class="card-photo" src="${place.photo_url}" alt="${place.name}"/>`
-            : `<div class="card-photo-placeholder">🍽️</div>`;
-          const peakBars = (place.peak_hours || []).map((b, h) =>
-            `<div title="${h}:00 — ${b}% busy" style="flex:1; height:${b}%; background:${b>=75?'#f87171':b>=50?'#f97316':b>=30?'#fbbf24':'#4ade80'}; border-radius:2px; opacity:${h===new Date().getHours()?1:0.4};"></div>`
-          ).join('');
+        const [halaalData, reactionData] = await Promise.all([
+          loadHalaal(place.place_id),
+          loadReactions(place.place_id)
+        ]);
 
-          leaderboardData[place.place_id] = {
-            name: place.name, rating: place.rating,
-            fire: reactionData.fire, solid: reactionData.solid, skip: reactionData.skip
-          };
-          if (leaderboardOpen) renderLeaderboard();
+        const verdict   = getHalaalVerdict(halaalData, place.halaal);
+        const busyClass = getBusyClass(place.busy);
+        const routeUrl  = getRoute(userLat, userLng, place.dest_lat, place.dest_lng);
+        const stars     = place.rating !== "N/A"
+          ? "★".repeat(Math.round(place.rating)) + "☆".repeat(5 - Math.round(place.rating))
+          : "—";
+        const openTag = place.open_now
+          ? `<span class="tag open">🟢 Open Now</span>`
+          : `<span class="tag closed">🔴 Closed</span>`;
+        const photoEl = place.photo_url
+          ? `<img class="card-photo" src="${place.photo_url}" alt="${place.name}"/>`
+          : `<div class="card-photo-placeholder">🍽️</div>`;
+        const peakBars = (place.peak_hours || []).map((b, h) =>
+          `<div title="${h}:00 — ${b}% busy" style="flex:1; height:${b}%; background:${b>=75?'#f87171':b>=50?'#f97316':b>=30?'#fbbf24':'#4ade80'}; border-radius:2px; opacity:${h===new Date().getHours()?1:0.4};"></div>`
+        ).join('');
 
-          container.innerHTML += `
-            <div class="card" id="card-${place.place_id}">
-              ${photoEl}
-              <div class="card-body">
-                <div class="card-name">${place.name}</div>
-                <div class="card-address">${place.address}</div>
-                <div class="rating-row">
-                  <span class="stars">${stars}</span>
-                  <strong>${place.rating}</strong>
-                  <span class="review-count">(${place.reviews.toLocaleString()} reviews)</span>
+        // Update leaderboard data
+        leaderboardData[place.place_id] = {
+          name: place.name, rating: place.rating,
+          fire: reactionData.fire, solid: reactionData.solid, skip: reactionData.skip
+        };
+        if (leaderboardOpen) renderLeaderboard();
+
+        // FIX: use insertAdjacentHTML instead of innerHTML += to preserve existing event listeners
+        container.insertAdjacentHTML('beforeend', `
+          <div class="card" id="card-${place.place_id}">
+            ${photoEl}
+            <div class="card-body">
+              <div class="card-name">${place.name}</div>
+              <div class="card-address">${place.address}</div>
+              <div class="rating-row">
+                <span class="stars">${stars}</span>
+                <strong>${place.rating}</strong>
+                <span class="review-count">(${place.reviews.toLocaleString()} reviews)</span>
+              </div>
+              <div class="distance-row">
+                📍 <span>${place.distance}</span> &nbsp;·&nbsp; 🚗 <span>${place.drive_time}</span>
+              </div>
+              <div class="tags">${openTag}</div>
+              <div class="busy-section">
+                <div class="busy-label-row">
+                  <span>How Busy Right Now</span>
+                  <span style="color:var(--accent);font-weight:700">${place.busy_label}</span>
                 </div>
-                <div class="distance-row">
-                  📍 <span>${place.distance}</span> &nbsp;·&nbsp; 🚗 <span>${place.drive_time}</span>
+                <div class="busy-gauge-track">
+                  <div class="busy-gauge-fill ${busyClass}" style="width:${place.busy}%"></div>
                 </div>
-                <div class="tags">${openTag}</div>
-                <div class="busy-section">
-                  <div class="busy-label-row">
-                    <span>How Busy Right Now</span>
-                    <span style="color:var(--accent);font-weight:700">${place.busy_label}</span>
-                  </div>
-                  <div class="busy-gauge-track">
-                    <div class="busy-gauge-fill ${busyClass}" style="width:${place.busy}%"></div>
-                  </div>
-                  <div style="font-size:0.72rem;color:var(--muted);margin-bottom:6px;">Based on typical patterns for this time</div>
-                  <div style="font-size:0.75rem;color:var(--muted);margin-bottom:4px;">📊 Busy throughout the day</div>
-                  <div style="display:flex; align-items:flex-end; gap:2px; height:32px;">${peakBars}</div>
-                  <div style="display:flex; justify-content:space-between; font-size:0.65rem; color:var(--muted); margin-top:2px;">
-                    <span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>11pm</span>
-                  </div>
-                </div>
-                <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                  <button onclick="react('${place.place_id}','fire')"  style="flex:1; background:#1a1a1a; border:1px solid #2a2a2a; border-radius:10px; padding:8px; cursor:pointer; font-size:0.8rem; color:#f0f0f0; font-weight:700;" id="fire-${place.place_id}">🔥 Amazing (${reactionData.fire})</button>
-                  <button onclick="react('${place.place_id}','solid')" style="flex:1; background:#1a1a1a; border:1px solid #2a2a2a; border-radius:10px; padding:8px; cursor:pointer; font-size:0.8rem; color:#f0f0f0; font-weight:700;" id="solid-${place.place_id}">👍 Solid (${reactionData.solid})</button>
-                  <button onclick="react('${place.place_id}','skip')"  style="flex:1; background:#1a1a1a; border:1px solid #2a2a2a; border-radius:10px; padding:8px; cursor:pointer; font-size:0.8rem; color:#f0f0f0; font-weight:700;" id="skip-${place.place_id}">👎 Skip It (${reactionData.skip})</button>
-                </div>
-                <div class="halaal-section" id="halaal-${place.place_id}">
-                  <div class="halaal-title">🕌 Halaal Status — Community Verified</div>
-                  <div class="halaal-verdict" style="color:${verdict.color}">${verdict.text}</div>
-                  <div class="halaal-votes">Yes: ${halaalData.yes} &nbsp;|&nbsp; No: ${halaalData.no} &nbsp;|&nbsp; Unsure: ${halaalData.unsure}</div>
-                  <div class="halaal-buttons">
-                    <button class="halaal-btn btn-yes"    onclick="vote('${place.place_id}','yes','${place.halaal}')">✅ Halaal</button>
-                    <button class="halaal-btn btn-no"     onclick="vote('${place.place_id}','no','${place.halaal}')">❌ Not Halaal</button>
-                    <button class="halaal-btn btn-unsure" onclick="vote('${place.place_id}','unsure','${place.halaal}')">⚠️ Not Sure</button>
-                  </div>
+                <div style="font-size:0.72rem;color:var(--muted);margin-bottom:6px;">Based on typical patterns for this time</div>
+                <div style="font-size:0.75rem;color:var(--muted);margin-bottom:4px;">📊 Busy throughout the day</div>
+                <div style="display:flex; align-items:flex-end; gap:2px; height:32px;">${peakBars}</div>
+                <div style="display:flex; justify-content:space-between; font-size:0.65rem; color:var(--muted); margin-top:2px;">
+                  <span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>11pm</span>
                 </div>
               </div>
-              <div class="card-footer">
-                <a class="btn-maps" href="${place.maps_link}" target="_blank">📍 View on Maps</a>
-                <a class="btn-route" href="${routeUrl}" target="_blank">🧭 Get Route</a>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button onclick="react('${place.place_id}','fire')"  style="flex:1; background:#1a1a1a; border:1px solid #2a2a2a; border-radius:10px; padding:8px; cursor:pointer; font-size:0.8rem; color:#f0f0f0; font-weight:700;" id="fire-${place.place_id}">🔥 Amazing (${reactionData.fire})</button>
+                <button onclick="react('${place.place_id}','solid')" style="flex:1; background:#1a1a1a; border:1px solid #2a2a2a; border-radius:10px; padding:8px; cursor:pointer; font-size:0.8rem; color:#f0f0f0; font-weight:700;" id="solid-${place.place_id}">👍 Solid (${reactionData.solid})</button>
+                <button onclick="react('${place.place_id}','skip')"  style="flex:1; background:#1a1a1a; border:1px solid #2a2a2a; border-radius:10px; padding:8px; cursor:pointer; font-size:0.8rem; color:#f0f0f0; font-weight:700;" id="skip-${place.place_id}">👎 Skip It (${reactionData.skip})</button>
               </div>
-              <div style="padding:0 12px 12px;">
-                <a href="https://wa.me/?text=${encodeURIComponent(`🍔 *${place.name}*\n⭐ ${place.rating} (${place.reviews} reviews)\n📍 ${place.distance} away · 🚗 ${place.drive_time}\n\nChecked on Food Blip 👉 https://foodblip.vercel.app`)}" target="_blank" style="display:block; text-align:center; background:#25D366; border-radius:10px; padding:9px; color:#fff; text-decoration:none; font-weight:700; font-size:0.82rem; font-family:'Syne',sans-serif;">
-                  📲 Share on WhatsApp
-                </a>
+              <div class="halaal-section" id="halaal-${place.place_id}">
+                <div class="halaal-title">🕌 Halaal Status — Community Verified</div>
+                <div class="halaal-verdict" style="color:${verdict.color}">${verdict.text}</div>
+                <div class="halaal-votes">Yes: ${halaalData.yes} &nbsp;|&nbsp; No: ${halaalData.no} &nbsp;|&nbsp; Unsure: ${halaalData.unsure}</div>
+                <div class="halaal-buttons">
+                  <button class="halaal-btn btn-yes"    onclick="vote('${place.place_id}','yes','${place.halaal}')">✅ Halaal</button>
+                  <button class="halaal-btn btn-no"     onclick="vote('${place.place_id}','no','${place.halaal}')">❌ Not Halaal</button>
+                  <button class="halaal-btn btn-unsure" onclick="vote('${place.place_id}','unsure','${place.halaal}')">⚠️ Not Sure</button>
+                </div>
               </div>
-            </div>`;
-        });
+            </div>
+            <div class="card-footer">
+              <a class="btn-maps" href="${place.maps_link}" target="_blank">📍 View on Maps</a>
+              <a class="btn-route" href="${routeUrl}" target="_blank">🧭 Get Route</a>
+            </div>
+            <div style="padding:0 12px 12px;">
+              <a href="https://wa.me/?text=${encodeURIComponent(`🍔 *${place.name}*\n⭐ ${place.rating} (${place.reviews} reviews)\n📍 ${place.distance} away · 🚗 ${place.drive_time}\n\nChecked on Food Blip 👉 https://foodblip.vercel.app`)}" target="_blank" style="display:block; text-align:center; background:#25D366; border-radius:10px; padding:9px; color:#fff; text-decoration:none; font-weight:700; font-size:0.82rem; font-family:'Syne',sans-serif;">
+                📲 Share on WhatsApp
+              </a>
+            </div>
+          </div>`);
       }
+
     } catch (err) {
+      container.innerHTML = "";
+      finishProgress();
       document.getElementById("status").innerHTML = "❌ Something went wrong. Make sure app.py is running.";
     }
   };
 
+  /* ── Halaal vote handler ── */
   window.vote = async function (placeId, vote, systemGuess) {
     const section   = document.getElementById(`halaal-${placeId}`);
     const verdictEl = section.querySelector(".halaal-verdict");
     const votesEl   = section.querySelector(".halaal-votes");
     verdictEl.textContent = "Saving your vote...";
-    waitForFirebase(async () => {
-      const updated = await voteHalaal(placeId, vote);
-      const verdict = getHalaalVerdict(updated, systemGuess);
-      verdictEl.textContent = verdict.text;
-      verdictEl.style.color = verdict.color;
-      votesEl.textContent   = `Yes: ${updated.yes} | No: ${updated.no} | Unsure: ${updated.unsure}`;
-    });
+    const updated = await voteHalaal(placeId, vote);
+    const verdict = getHalaalVerdict(updated, systemGuess);
+    verdictEl.textContent = verdict.text;
+    verdictEl.style.color = verdict.color;
+    votesEl.textContent   = `Yes: ${updated.yes} | No: ${updated.no} | Unsure: ${updated.unsure}`;
   };
 
+  /* ── Surprise Me ── */
   window.surpriseMe = async function () {
     const location = document.getElementById("location").value.trim();
     if (!location) { alert("Please enter or detect your location first!"); return; }
@@ -431,6 +473,7 @@
     }, 4000);
   };
 
+  /* ── Detect location ── */
   window.detectLocation = function () {
     const btn = document.querySelector("button[onclick='detectLocation()']");
     btn.textContent = "⏳";
@@ -448,6 +491,7 @@
     );
   };
 
+  /* ── Enter key shortcuts ── */
   document.getElementById("query").addEventListener("keyup",    e => { if (e.key === "Enter") window.search(); });
   document.getElementById("location").addEventListener("keyup", e => { if (e.key === "Enter") window.search(); });
 
