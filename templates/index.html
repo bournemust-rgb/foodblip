@@ -88,12 +88,16 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     footer { text-align: center; padding: 20px 16px 24px; margin-top: 40px; border-top: 1px solid var(--border); }
     .progress-bar { position: fixed; top: 0; left: 0; height: 3px; background: linear-gradient(90deg, #F47B20, #CC2529); z-index: 9999; transition: width 0.3s ease; }
-    .emoji-loader { text-align: center; padding: 32px 0 16px; }
-    .emoji-loader span { font-size: 2rem; display: inline-block; animation: bounce 0.8s ease-in-out infinite; }
+    .emoji-loader { text-align: center; padding: 32px 0 16px; width: 100%; display: block; }
+    .emoji-loader span { font-size: 2.2rem; display: inline-block; animation: bounce 0.8s ease-in-out infinite; transform-origin: bottom center; }
     .emoji-loader span:nth-child(2) { animation-delay: 0.15s; }
     .emoji-loader span:nth-child(3) { animation-delay: 0.3s; }
-    @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
-    .emoji-loader p { color: var(--muted); font-size: 0.85rem; margin-top: 8px; }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0) scaleY(1); }
+      40% { transform: translateY(-18px) scaleY(1.05); }
+      70% { transform: translateY(2px) scaleY(0.95); }
+    }
+    .emoji-loader p { color: var(--muted); font-size: 0.85rem; margin-top: 12px; font-weight: 500; }
   </style>
 </head>
 <body>
@@ -132,7 +136,6 @@
 
   <div id="results"></div>
 
-  <!-- Fixed progress bar element (lives outside #results so it isn't wiped) -->
   <div class="progress-bar" id="progressBar" style="width:0; display:none;"></div>
 
   <footer>
@@ -177,7 +180,7 @@
     return snap.exists() ? snap.data() : { fire: 0, solid: 0, skip: 0 };
   }
 
-  /* ── Reaction handler (exposed globally) ── */
+  /* ── Reaction handler ── */
   window.react = async function (placeId, type) {
     await waitForFirebase();
     const ref  = window._doc(window._db, "reactions", placeId);
@@ -217,8 +220,8 @@
 
   function getRoute(userLat, userLng, destLat, destLng) {
     return (userLat && userLng)
-      ? `https://www.google.com/maps/dir/${userLat},${userLng}/${destLat},${destLng}`
-      : `https://www.google.com/maps/dir//${destLat},${destLng}`;
+      ? `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${destLat},${destLng}`
+      : `https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}`;
   }
 
   /* ── Progress bar helpers ── */
@@ -307,7 +310,6 @@
       return;
     }
 
-    // Clear previous results and show loader
     document.getElementById("status").innerHTML = "";
     const container = document.getElementById("results");
     container.innerHTML = `
@@ -317,7 +319,6 @@
       </div>`;
     showProgress();
 
-    // Try to get user's geolocation
     let userLat = null, userLng = null;
     try {
       await new Promise(res => {
@@ -333,7 +334,6 @@
       const res  = await fetch(`/search?query=${encodeURIComponent(query)}&location=${encodeURIComponent(location)}`);
       const data = await res.json();
 
-      // Remove loader and finish progress bar
       container.innerHTML = "";
       finishProgress();
 
@@ -344,7 +344,6 @@
 
       document.getElementById("status").innerHTML = `Found <strong>${data.length}</strong> spots`;
 
-      // Build and inject each card — await Firebase so buttons are live immediately
       for (const place of data) {
         const [halaalData, reactionData] = await Promise.all([
           loadHalaal(place.place_id),
@@ -367,14 +366,12 @@
           `<div title="${h}:00 — ${b}% busy" style="flex:1; height:${b}%; background:${b>=75?'#f87171':b>=50?'#f97316':b>=30?'#fbbf24':'#4ade80'}; border-radius:2px; opacity:${h===new Date().getHours()?1:0.4};"></div>`
         ).join('');
 
-        // Update leaderboard data
         leaderboardData[place.place_id] = {
           name: place.name, rating: place.rating,
           fire: reactionData.fire, solid: reactionData.solid, skip: reactionData.skip
         };
         if (leaderboardOpen) renderLeaderboard();
 
-        // FIX: use insertAdjacentHTML instead of innerHTML += to preserve existing event listeners
         container.insertAdjacentHTML('beforeend', `
           <div class="card" id="card-${place.place_id}">
             ${photoEl}
@@ -387,7 +384,7 @@
                 <span class="review-count">(${place.reviews.toLocaleString()} reviews)</span>
               </div>
               <div class="distance-row">
-                📍 <span>${place.distance}</span> &nbsp;·&nbsp; 🚗 <span>${place.drive_time}</span>
+                📍 <span>${place.distance}</span>  ·  🚗 <span>${place.drive_time}</span>
               </div>
               <div class="tags">${openTag}</div>
               <div class="busy-section">
@@ -413,7 +410,7 @@
               <div class="halaal-section" id="halaal-${place.place_id}">
                 <div class="halaal-title">🕌 Halaal Status — Community Verified</div>
                 <div class="halaal-verdict" style="color:${verdict.color}">${verdict.text}</div>
-                <div class="halaal-votes">Yes: ${halaalData.yes} &nbsp;|&nbsp; No: ${halaalData.no} &nbsp;|&nbsp; Unsure: ${halaalData.unsure}</div>
+                <div class="halaal-votes">Yes: ${halaalData.yes}  |  No: ${halaalData.no}  |  Unsure: ${halaalData.unsure}</div>
                 <div class="halaal-buttons">
                   <button class="halaal-btn btn-yes"    onclick="vote('${place.place_id}','yes','${place.halaal}')">✅ Halaal</button>
                   <button class="halaal-btn btn-no"     onclick="vote('${place.place_id}','no','${place.halaal}')">❌ Not Halaal</button>
