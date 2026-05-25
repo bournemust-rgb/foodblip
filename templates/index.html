@@ -238,10 +238,12 @@
   <!-- Search -->
   <div class="search-box">
     <input type="text" id="query" placeholder="Restaurant name (e.g. Nandos)"/>
-    <input type="text" id="location" placeholder="Your area (e.g. Kuilsriver, Cape Town)"/>
+    <div style="display:flex; gap:8px;">
+      <input type="text" id="location" placeholder="Your area (e.g. Kuilsriver, Cape Town)" style="flex:1;"/>
+      <button onclick="detectLocation()" style="background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; color:var(--accent); font-size:1.2rem; cursor:pointer;">📍</button>
+    </div>
     <button onclick="search()">🔍 Check It Out</button>
   </div>
-
   <div id="status"></div>
   <div id="results"></div>
 
@@ -419,6 +421,26 @@
 
   document.getElementById("query").addEventListener("keyup",    e => { if (e.key === "Enter") window.search(); });
   document.getElementById("location").addEventListener("keyup", e => { if (e.key === "Enter") window.search(); });
+
+  window.detectLocation = function () {
+    const btn = document.querySelector("button[onclick='detectLocation()']");
+    btn.textContent = "⏳";
+    navigator.geolocation.getCurrentPosition(
+      async pos => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        const res  = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+        const data = await res.json();
+        const suburb = data.address.suburb || data.address.town || data.address.city || "";
+        const city   = data.address.city   || data.address.state || "";
+        document.getElementById("location").value = `${suburb}, ${city}`;
+        btn.textContent = "📍";
+      },
+      () => {
+        alert("Could not detect location. Please type it manually.");
+        btn.textContent = "📍";
+      }
+    );
+  };
 </script>
 
 </body>
