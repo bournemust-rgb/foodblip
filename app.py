@@ -4,7 +4,17 @@ import os
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
 GOOGLE_API_KEY = "AIzaSyCLeD0v0ZKH6PHHQUJ4uQIR-ETu9K_21Z8"
+@app.route("/static/manifest.json")
+def manifest():
+    return app.send_static_file("manifest.json")
 
+@app.route("/static/icon-192.png")
+def icon192():
+    return app.send_static_file("icon-192.png")
+
+@app.route("/static/icon-512.png")
+def icon512():
+    return app.send_static_file("icon-512.png")
 @app.route("/")
 def index():
     return render_template("index.html")
