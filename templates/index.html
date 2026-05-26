@@ -264,6 +264,20 @@
     </div>
     <button onclick="search()">🔍 Check It Out</button>
     <button onclick="surpriseMe()" style="background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;border-radius:12px;padding:14px;color:#fff;font-size:1rem;font-weight:700;font-family:'Syne',sans-serif;cursor:pointer;transition:opacity 0.2s,transform 0.1s;">🎲 Surprise Me</button>
+    <button onclick="toggleMoodPicker()" id="moodBtn" style="background:linear-gradient(135deg,#1a1a2e,#16213e);border:1px solid #a855f7;border-radius:12px;padding:14px;color:#a855f7;font-size:1rem;font-weight:700;font-family:'Syne',sans-serif;cursor:pointer;transition:all 0.2s;">🤖 AI Mood Picker</button>
+  </div>
+
+  <!-- AI Mood Picker Panel -->
+  <div class="mood-panel" id="moodPanel">
+    <div class="mood-title">🤖 Tell me what you feel like eating...</div>
+    <div class="mood-input-row">
+      <input class="mood-input" id="moodInput" placeholder="e.g. something spicy and quick, comfort food, light salad..."/>
+      <button class="mood-go-btn" id="moodGoBtn" onclick="askMood()">Ask AI ✨</button>
+    </div>
+    <div class="mood-result" id="moodResult">
+      <div class="mood-result-text" id="moodResultText"></div>
+      <button class="mood-use-btn" id="moodUseBtn" onclick="useMoodSuggestion()">🔍 Search This Now</button>
+    </div>
   </div>
 
   <div class="city-selector">
@@ -881,6 +895,62 @@
     deferredPrompt=null;
   };
   document.getElementById("installDismiss").addEventListener("click",()=>{localStorage.setItem("fb-pwa-dismissed","1");document.getElementById("installBanner").style.display="none";});
+
+  /* ── AI MOOD PICKER ── */
+  let moodOpen = false;
+  let moodSuggestion = "";
+
+  window.toggleMoodPicker = function() {
+    moodOpen = !moodOpen;
+    const panel = document.getElementById("moodPanel");
+    const btn   = document.getElementById("moodBtn");
+    panel.classList.toggle("open", moodOpen);
+    btn.style.background  = moodOpen ? "linear-gradient(135deg,#7c3aed,#a855f7)" : "linear-gradient(135deg,#1a1a2e,#16213e)";
+    btn.style.color       = moodOpen ? "#fff" : "#a855f7";
+    btn.style.borderColor = moodOpen ? "transparent" : "#a855f7";
+    btn.textContent       = moodOpen ? "🤖 Hide AI Picker" : "🤖 AI Mood Picker";
+    if (moodOpen) setTimeout(() => document.getElementById("moodInput").focus(), 200);
+  };
+
+  window.askMood = async function() {
+    const mood  = document.getElementById("moodInput").value.trim();
+    const goBtn = document.getElementById("moodGoBtn");
+    const result= document.getElementById("moodResult");
+    const text  = document.getElementById("moodResultText");
+    if (!mood) { document.getElementById("moodInput").focus(); return; }
+    goBtn.innerHTML = '<span class="mood-spinner"></span> Thinking...';
+    goBtn.disabled  = true;
+    result.classList.remove("show");
+    try {
+      const res  = await fetch("/mood", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ mood }) });
+      const data = await res.json();
+      if (data.error) {
+        text.innerHTML = `<span style="color:var(--red);">❌ ${data.error}</span>`;
+      } else {
+        moodSuggestion = data.search_term;
+        text.innerHTML = `<strong style="font-size:1.4rem;">${data.emoji}</strong> &nbsp;<strong>${data.search_term}</strong><br><span style="color:var(--muted);font-size:0.82rem;">${data.reason}</span>`;
+        document.getElementById("moodUseBtn").textContent = `🔍 Search "${data.search_term}" Now`;
+      }
+      result.classList.add("show");
+    } catch(err) {
+      text.innerHTML = `<span style="color:var(--red);">❌ Something went wrong. Try again!</span>`;
+      result.classList.add("show");
+    } finally {
+      goBtn.innerHTML = "Ask AI ✨";
+      goBtn.disabled  = false;
+    }
+  };
+
+  window.useMoodSuggestion = function() {
+    if (!moodSuggestion) return;
+    const location = document.getElementById("location").value.trim();
+    document.getElementById("query").value = moodSuggestion;
+    toggleMoodPicker();
+    if (!location) { alert("Please enter or detect your location first!"); return; }
+    window.search();
+  };
+
+  document.getElementById("moodInput").addEventListener("keyup", e => { if (e.key === "Enter") window.askMood(); });
 
   /* ── KEYBOARD ── */
   document.getElementById("query").addEventListener("keyup",    e=>{if(e.key==="Enter")window.search();});
