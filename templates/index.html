@@ -912,12 +912,12 @@
     if (moodOpen) setTimeout(() => document.getElementById("moodInput").focus(), 200);
   };
 
- window.askMood = async function() {
-    const mood  = document.getElementById("moodInput").value.trim();
-    const goBtn = document.getElementById("moodGoBtn");
-    const result= document.getElementById("moodResult");
-    const text  = document.getElementById("moodResultText");
+  window.askMood = async function() {
+    const mood     = document.getElementById("moodInput").value.trim();
     const location = document.getElementById("location").value.trim();
+    const goBtn    = document.getElementById("moodGoBtn");
+    const result   = document.getElementById("moodResult");
+    const text     = document.getElementById("moodResultText");
     if (!mood) { document.getElementById("moodInput").focus(); return; }
     if (!location) { alert("Please enter or detect your location first!"); return; }
     goBtn.innerHTML = '<span class="mood-spinner"></span> Thinking...';
@@ -929,20 +929,22 @@
       if (data.error) {
         text.innerHTML = `<span style="color:var(--red);">❌ ${data.error}</span>`;
         result.classList.add("show");
+        goBtn.innerHTML = "Ask AI ✨";
+        goBtn.disabled  = false;
       } else {
-        moodSuggestion = data.search_term;
         text.innerHTML = `<strong style="font-size:1.4rem;">${data.emoji}</strong> &nbsp;<strong>${data.search_term}</strong><br><span style="color:var(--muted);font-size:0.82rem;">${data.reason}</span>`;
         result.classList.add("show");
         document.getElementById("query").value = data.search_term;
+        goBtn.innerHTML = "Ask AI ✨";
+        goBtn.disabled  = false;
         setTimeout(() => {
           toggleMoodPicker();
           window.search();
-        }, 1200);
+        }, 1500);
       }
     } catch(err) {
       text.innerHTML = `<span style="color:var(--red);">❌ Something went wrong. Try again!</span>`;
       result.classList.add("show");
-    } finally {
       goBtn.innerHTML = "Ask AI ✨";
       goBtn.disabled  = false;
     }
