@@ -4,11 +4,14 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Food Blip</title>
+  <meta name="description" content="Find out how busy a restaurant is before you drive there."/>
+  <link rel="manifest" href="/static/manifest.json"/>
+  <meta name="theme-color" content="#ff6a00"/>
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"/>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, doc, getDoc, setDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, collection, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     const firebaseConfig = {
       apiKey: "AIzaSyATNHXHDRokeeiP6sjzPK1zUeAHKFrEYBQ",
       authDomain: "foodblip-1a771.firebaseapp.com",
@@ -25,6 +28,11 @@
     window._setDoc = setDoc;
     window._updateDoc = updateDoc;
     window._increment = increment;
+    window._collection = collection;
+    window._query = query;
+    window._orderBy = orderBy;
+    window._limit = limit;
+    window._getDocs = getDocs;
   </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -32,42 +40,66 @@
       --bg: #0f0f0f; --card: #1a1a1a; --border: #2a2a2a;
       --accent: #ff6a00; --accent2: #ff9a44; --text: #f0f0f0;
       --muted: #888; --green: #4ade80; --red: #f87171; --yellow: #fbbf24;
-      --purple: #a855f7;
+      --purple: #a855f7; --max: 960px;
     }
     [data-theme="light"] {
       --bg: #f5f5f7; --card: #ffffff; --border: #e2e8f0;
-      --accent: #ff6a00; --accent2: #ff9a44; --text: #1e293b;
-      --muted: #64748b; --green: #16a34a; --red: #dc2626; --yellow: #d97706;
-      --purple: #7c3aed;
+      --text: #1e293b; --muted: #64748b; --green: #16a34a;
+      --red: #dc2626; --yellow: #d97706; --purple: #7c3aed;
     }
-    body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; padding: 0 16px 80px; transition: background 0.3s, color 0.3s; }
-    header { text-align: center; padding: 48px 0 32px; position: relative; }
-    header p { color: var(--muted); margin-top: 8px; font-size: 1rem; }
+    body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; padding: 0 16px 100px; transition: background 0.3s, color 0.3s; }
+
+    /* ── Header ── */
+    header { text-align: center; padding: 48px 0 24px; position: relative; }
+    header p { color: var(--muted); margin-top: 6px; font-size: 1rem; }
     .theme-toggle-btn { position: absolute; top: 16px; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 50%; width: 44px; height: 44px; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-    .theme-toggle-btn:hover { border-color: var(--accent); transform: scale(1.05); }
+    .theme-toggle-btn:hover { border-color: var(--accent); transform: scale(1.08); }
+
+    /* ── Search box ── */
     .search-box { max-width: 640px; margin: 0 auto 16px; display: flex; flex-direction: column; gap: 12px; }
-    .search-box input { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; color: var(--text); font-size: 1rem; font-family: 'DM Sans', sans-serif; outline: none; transition: border 0.2s, background 0.2s; }
-    .search-box input:focus { border-color: var(--accent); }
+    .search-box input { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; color: var(--text); font-size: 1rem; font-family: 'DM Sans', sans-serif; outline: none; transition: border 0.2s, box-shadow 0.2s; }
+    .search-box input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,106,0,0.12); }
     .search-box input::placeholder { color: var(--muted); }
     .search-box button { background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 12px; padding: 14px; color: #fff; font-size: 1rem; font-weight: 700; font-family: 'Syne', sans-serif; cursor: pointer; transition: opacity 0.2s, transform 0.1s; }
     .search-box button:hover { opacity: 0.88; }
     .search-box button:active { transform: scale(0.97); }
-    .history-container { max-width: 640px; margin: 0 auto 32px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+    /* ── City selector ── */
+    .city-selector { max-width: 640px; margin: 0 auto 24px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .city-label { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); font-family: 'Syne', sans-serif; }
+    .city-pill { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 6px 14px; font-size: 0.8rem; color: var(--muted); cursor: pointer; transition: all 0.2s; font-family: 'DM Sans', sans-serif; }
+    .city-pill:hover { border-color: var(--accent); color: var(--accent); }
+    .city-pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+    /* ── History ── */
+    .history-container { max-width: 640px; margin: 0 auto 24px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     .history-label { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); font-family: 'Syne', sans-serif; }
-    .history-pill { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 6px 14px; font-size: 0.8rem; font-family: 'DM Sans', sans-serif; color: var(--text); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 4px; }
+    .history-pill { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 6px 14px; font-size: 0.8rem; color: var(--text); cursor: pointer; transition: all 0.2s; font-family: 'DM Sans', sans-serif; }
     .history-pill:hover { border-color: var(--accent); background: rgba(255,106,0,0.05); }
 
-    /* Sort bar */
-    .sort-bar { max-width: 960px; margin: 0 auto 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+    /* ── Toolbar (centered) ── */
+    .toolbar { max-width: var(--max); margin: 0 auto 12px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; align-items: center; }
+    .tool-btn { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 18px; color: var(--muted); font-size: 0.82rem; font-weight: 700; font-family: 'Syne', sans-serif; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+    .tool-btn:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+    .tool-btn:active { transform: scale(0.96); }
+
+    /* ── Sort bar (centered) ── */
+    .sort-bar { max-width: var(--max); margin: 0 auto 16px; display: none; gap: 8px; flex-wrap: wrap; justify-content: center; align-items: center; }
+    .sort-label { font-size: 0.78rem; color: var(--muted); font-weight: 700; font-family: 'Syne', sans-serif; }
     .sort-btn { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 6px 14px; font-size: 0.78rem; font-weight: 700; font-family: 'Syne', sans-serif; color: var(--muted); cursor: pointer; transition: all 0.2s; }
     .sort-btn:hover { border-color: var(--accent); color: var(--accent); }
     .sort-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
-    #results { max-width: 960px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 20px; }
+    /* ── Panels (leaderboard, favourites, trending) ── */
+    .panel { max-width: var(--max); margin: 0 auto 20px; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; display: none; }
+    .panel-title { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 800; margin-bottom: 12px; background: linear-gradient(135deg,#F47B20,#CC2529); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+    /* ── Cards grid ── */
+    #results { max-width: var(--max); margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 20px; }
     .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s; }
-    .card:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
-    .card-photo { width: 100%; height: 160px; object-fit: cover; background: var(--border); transition: opacity 0.3s; }
-    .card-photo-placeholder { width: 100%; height: 160px; background: linear-gradient(135deg, #1f1f1f, #2a2a2a); display: flex; align-items: center; justify-content: center; font-size: 2.5rem; }
+    .card:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+    .card-photo { width: 100%; height: 160px; object-fit: cover; background: var(--border); }
+    .card-photo-placeholder { width: 100%; height: 160px; background: linear-gradient(135deg,#1f1f1f,#2a2a2a); display: flex; align-items: center; justify-content: center; font-size: 2.5rem; }
     .card-body { padding: 16px; flex: 1; display: flex; flex-direction: column; gap: 12px; }
     .card-name { font-family: 'Syne', sans-serif; font-size: 1.05rem; font-weight: 700; line-height: 1.3; }
     .card-address { color: var(--muted); font-size: 0.8rem; line-height: 1.4; }
@@ -81,6 +113,8 @@
     [data-theme="light"] .tag { background: rgba(0,0,0,0.03); }
     .tag.open { color: var(--green); border-color: var(--green); }
     .tag.closed { color: var(--red); border-color: var(--red); }
+
+    /* ── Busy gauge ── */
     .busy-section { display: flex; flex-direction: column; gap: 6px; }
     .busy-label-row { display: flex; justify-content: space-between; font-size: 0.8rem; }
     .busy-label-row span:first-child { color: var(--muted); }
@@ -91,13 +125,17 @@
     .busy-moderate { background: var(--yellow); }
     .busy-fairly { background: #f97316; }
     .busy-very { background: var(--red); }
-    .crowd-live-card { background: rgba(168,85,247,0.1); border: 1px dashed var(--purple); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+
+    /* ── Live crowd card ── */
+    .crowd-live-card { background: rgba(168,85,247,0.08); border: 1px dashed var(--purple); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
     .crowd-live-header { display: flex; justify-content: space-between; font-size: 0.75rem; font-weight: bold; color: var(--purple); font-family: 'Syne', sans-serif; }
     .crowd-live-buttons { display: flex; gap: 4px; }
     .crowd-btn { flex: 1; border: 1px solid var(--border); background: var(--card); color: var(--text); border-radius: 6px; padding: 5px 2px; font-size: 0.7rem; cursor: pointer; font-weight: 500; transition: all 0.15s; }
-    .crowd-btn:hover { border-color: var(--purple); background: rgba(168,85,247,0.05); }
-    .crowd-btn:active { transform: scale(0.95); }
-    .halaal-section { background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .crowd-btn:hover { border-color: var(--purple); background: rgba(168,85,247,0.08); }
+    .crowd-btn:active { transform: scale(0.94); }
+
+    /* ── Halaal ── */
+    .halaal-section { background: rgba(0,0,0,0.15); border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
     [data-theme="light"] .halaal-section { background: rgba(0,0,0,0.02); }
     .halaal-title { font-size: 0.8rem; color: var(--muted); }
     .halaal-verdict { font-size: 0.9rem; font-weight: 700; }
@@ -105,40 +143,59 @@
     .halaal-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
     .halaal-btn { flex: 1; border: none; border-radius: 8px; padding: 7px 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: opacity 0.2s, transform 0.1s; }
     .halaal-btn:hover { opacity: 0.8; }
-    .halaal-btn:active { transform: scale(0.95); }
+    .halaal-btn:active { transform: scale(0.94); }
     .btn-yes { background: #14532d; color: #4ade80; }
     .btn-no { background: #450a0a; color: #f87171; }
     .btn-unsure { background: #292524; color: #fbbf24; }
-    .react-btn { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 8px; cursor: pointer; font-size: 0.8rem; color: var(--text); font-weight: 700; transition: all 0.15s; }
+
+    /* ── Reaction buttons ── */
+    .react-btn { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 8px; cursor: pointer; font-size: 0.8rem; color: var(--text); font-weight: 700; transition: all 0.15s; font-family: 'DM Sans', sans-serif; }
     .react-btn:hover { border-color: var(--accent); transform: translateY(-1px); }
-    .react-btn:active { transform: scale(0.95); }
+    .react-btn:active { transform: scale(0.94); }
+
+    /* ── Card footer ── */
     .card-footer { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
-    .card-footer a { flex: 1; display: block; text-align: center; border-radius: 10px; padding: 9px 6px; text-decoration: none; font-weight: 700; font-size: 0.78rem; font-family: 'Syne', sans-serif; transition: background 0.2s, color 0.2s, transform 0.1s; }
-    .card-footer a:active { transform: scale(0.97); }
+    .card-footer a { flex: 1; display: block; text-align: center; border-radius: 10px; padding: 9px 6px; text-decoration: none; font-weight: 700; font-size: 0.78rem; font-family: 'Syne', sans-serif; transition: all 0.2s; }
+    .card-footer a:active { transform: scale(0.96); }
     .btn-maps { background: transparent; border: 1px solid var(--accent); color: var(--accent); }
     .btn-maps:hover { background: var(--accent); color: #fff; }
     .btn-route { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; border: none; }
     .btn-route:hover { opacity: 0.85; }
-    #status { text-align: center; color: var(--muted); font-size: 0.95rem; margin: 20px 0; }
-    .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 8px; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    footer { text-align: center; padding: 20px 16px 24px; margin-top: 40px; border-top: 1px solid var(--border); }
-    .progress-bar { position: fixed; top: 0; left: 0; height: 3px; background: linear-gradient(90deg, #F47B20, #CC2529); z-index: 9999; transition: width 0.3s ease; }
-    .emoji-loader { text-align: center; padding: 32px 0 16px; width: 100%; display: block; }
+
+    /* ── Fav button ── */
+    .photo-wrap { position: relative; }
+    .fav-btn { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.5); border: none; border-radius: 50%; width: 36px; height: 36px; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; backdrop-filter: blur(4px); }
+    .fav-btn:hover { transform: scale(1.15); }
+    .fav-btn:active { transform: scale(0.88); }
+
+    /* ── Progress bar ── */
+    .progress-bar { position: fixed; top: 0; left: 0; height: 3px; background: linear-gradient(90deg,#F47B20,#CC2529); z-index: 9999; transition: width 0.3s ease; pointer-events: none; }
+
+    /* ── Emoji loader ── */
+    .emoji-loader { text-align: center; padding: 40px 0 20px; width: 100%; grid-column: 1/-1; }
     .emoji-loader span { font-size: 2.2rem; display: inline-block; animation: bounce 0.8s ease-in-out infinite; transform-origin: bottom center; }
     .emoji-loader span:nth-child(2) { animation-delay: 0.15s; }
     .emoji-loader span:nth-child(3) { animation-delay: 0.3s; }
-    @keyframes bounce { 0%, 100% { transform: translateY(0) scaleY(1); } 40% { transform: translateY(-18px) scaleY(1.05); } 70% { transform: translateY(2px) scaleY(0.95); } }
+    @keyframes bounce { 0%,100% { transform: translateY(0) scaleY(1); } 40% { transform: translateY(-18px) scaleY(1.05); } 70% { transform: translateY(2px) scaleY(0.95); } }
     .emoji-loader p { color: var(--muted); font-size: 0.85rem; margin-top: 12px; font-weight: 500; }
-    .fav-btn { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.5); border: none; border-radius: 50%; width: 36px; height: 36px; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; backdrop-filter: blur(4px); }
-    .fav-btn:hover { transform: scale(1.15); }
-    .fav-btn:active { transform: scale(0.9); }
-    .photo-wrap { position: relative; }
-    .skeleton-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
-    .skeleton-img { width: 100%; height: 160px; background: #2a2a2a; }
-    .skeleton-body { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
-    .skeleton-line { background: #2a2a2a; border-radius: 6px; animation: pulse 1.5s ease-in-out infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    /* ── Status / spinner ── */
+    #status { text-align: center; color: var(--muted); font-size: 0.95rem; margin: 16px 0; }
+    .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── PWA install banner ── */
+    #installBanner { display: none; position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--card); border: 1px solid var(--accent); border-radius: 16px; padding: 14px 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); z-index: 1000; display: flex; align-items: center; gap: 12px; max-width: 380px; width: calc(100% - 32px); }
+    #installBanner p { flex: 1; font-size: 0.85rem; color: var(--text); font-weight: 500; }
+    #installBanner button { background: linear-gradient(135deg,var(--accent),var(--accent2)); border: none; border-radius: 8px; padding: 8px 16px; color: #fff; font-weight: 700; font-family: 'Syne', sans-serif; cursor: pointer; font-size: 0.82rem; white-space: nowrap; }
+    #installDismiss { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1.1rem; padding: 4px; }
+
+    /* ── Footer ── */
+    footer { text-align: center; padding: 20px 16px 24px; margin-top: 40px; border-top: 1px solid var(--border); }
+
+    /* ── Leaderboard row ── */
+    .lb-row { display: flex; align-items: center; gap: 12px; padding: 10px; background: rgba(0,0,0,0.1); border-radius: 10px; margin-bottom: 6px; }
+    [data-theme="light"] .lb-row { background: rgba(0,0,0,0.03); }
   </style>
 </head>
 <body>
@@ -146,378 +203,449 @@
   <div class="progress-bar" id="progressBar" style="width:0; display:none;"></div>
 
   <header>
-    <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Theme">🌓</button>
+    <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle dark/light mode">🌓</button>
     <img src="https://i.postimg.cc/HsNrmL41/logo-2-transp.png" alt="Food Blip Logo" style="width:min(880px,90vw); height:auto; object-fit:contain; margin:0 auto 8px; display:block;"/>
     <h1 style="font-family:'Syne',sans-serif; font-size:3rem; font-weight:800; background:linear-gradient(135deg,#F47B20,#CC2529); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; letter-spacing:-1px; margin-bottom:8px;">Food Blip</h1>
     <p>Find out how busy a spot is before you drive there 🔥</p>
   </header>
 
+  <!-- Search -->
   <div class="search-box">
     <input type="text" id="query" placeholder="Restaurant name (e.g. Nandos)"/>
     <div style="display:flex; gap:8px;">
       <input type="text" id="location" placeholder="Your area (e.g. Kuilsriver, Cape Town)" style="flex:1;"/>
-      <button onclick="detectLocation()" style="background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; color:var(--accent); font-size:1.2rem; cursor:pointer;">📍</button>
+      <button onclick="detectLocation()" style="background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; color:var(--accent); font-size:1.2rem; cursor:pointer; transition:all 0.2s;">📍</button>
     </div>
     <button onclick="search()">🔍 Check It Out</button>
     <button onclick="surpriseMe()" style="background:linear-gradient(135deg,#7c3aed,#a855f7); border:none; border-radius:12px; padding:14px; color:#fff; font-size:1rem; font-weight:700; font-family:'Syne',sans-serif; cursor:pointer; transition:opacity 0.2s, transform 0.1s;">🎲 Surprise Me</button>
   </div>
 
+  <!-- City selector -->
+  <div class="city-selector" id="citySelector">
+    <span class="city-label">📍 City:</span>
+    <button class="city-pill active" onclick="setCity('Cape Town')">Cape Town</button>
+    <button class="city-pill" onclick="setCity('Johannesburg')">Johannesburg</button>
+    <button class="city-pill" onclick="setCity('Durban')">Durban</button>
+    <button class="city-pill" onclick="setCity('Pretoria')">Pretoria</button>
+    <button class="city-pill" onclick="setCity('Port Elizabeth')">Port Elizabeth</button>
+  </div>
+
+  <!-- Recent searches -->
   <div class="history-container" id="historyContainer" style="display:none;">
     <span class="history-label">Recents:</span>
     <div id="historyPills" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
   </div>
 
-  <div style="max-width:960px; margin:0 auto 20px;">
-    <button onclick="toggleLeaderboard()" id="leaderboardBtn" style="background:var(--card); border:1px solid var(--border); border-radius:12px; padding:10px 18px; color:var(--muted); font-size:0.85rem; font-weight:700; font-family:'Syne',sans-serif; cursor:pointer; transition:all 0.2s;">🏆 Show Local Leaderboard</button>
-    <div id="leaderboard" style="display:none; margin-top:16px; background:var(--card); border:1px solid var(--border); border-radius:16px; padding:16px;">
-      <div style="font-family:'Syne',sans-serif; font-size:1rem; font-weight:800; margin-bottom:12px; background:linear-gradient(135deg,#F47B20,#CC2529); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">🏆 Top Spots — Community Ranked</div>
-      <div id="leaderboardList" style="display:flex; flex-direction:column; gap:8px;">
-        <div style="color:var(--muted); font-size:0.85rem;">Search for restaurants first to build the leaderboard!</div>
-      </div>
-    </div>
+  <!-- Toolbar — centered -->
+  <div class="toolbar">
+    <button class="tool-btn" onclick="toggleLeaderboard()" id="leaderboardBtn">🏆 Leaderboard</button>
+    <button class="tool-btn" onclick="toggleTrending()"    id="trendingBtn">📈 Trending</button>
+    <button class="tool-btn" onclick="toggleHalaalFilter()" id="halaalFilterBtn">🕌 Halaal Only</button>
+    <button class="tool-btn" onclick="toggleFavourites()"  id="favBtn">❤️ Favourites</button>
   </div>
 
-  <div id="status"></div>
-
-  <div style="max-width:960px; margin:0 auto 12px; display:flex; gap:8px; flex-wrap:wrap;">
-    <button id="halaalFilterBtn" onclick="toggleHalaalFilter()" style="background:var(--card); border:1px solid var(--border); border-radius:12px; padding:10px 18px; color:var(--muted); font-size:0.85rem; font-weight:700; font-family:'Syne',sans-serif; cursor:pointer; transition:all 0.2s;">🕌 Show Halaal Only</button>
-    <button onclick="toggleFavourites()" id="favBtn" style="background:var(--card); border:1px solid var(--border); border-radius:12px; padding:10px 18px; color:var(--muted); font-size:0.85rem; font-weight:700; font-family:'Syne',sans-serif; cursor:pointer; transition:all 0.2s;">❤️ My Favourites</button>
-  </div>
-
-  <div class="sort-bar" id="sortBar" style="display:none;">
-    <span style="font-size:0.78rem; color:var(--muted); font-weight:700; font-family:'Syne',sans-serif; align-self:center;">Sort:</span>
+  <!-- Sort bar — centered -->
+  <div class="sort-bar" id="sortBar">
+    <span class="sort-label">Sort:</span>
     <button class="sort-btn active" onclick="sortResults('rating')"   id="sort-rating">⭐ Rating</button>
     <button class="sort-btn"        onclick="sortResults('distance')" id="sort-distance">📍 Distance</button>
     <button class="sort-btn"        onclick="sortResults('busy')"     id="sort-busy">🔥 Least Busy</button>
   </div>
 
-  <div id="favouritesPanel" style="display:none; max-width:960px; margin:0 auto 20px; background:var(--card); border:1px solid var(--border); border-radius:16px; padding:16px;">
-    <div style="font-family:'Syne',sans-serif; font-size:1rem; font-weight:800; margin-bottom:12px; background:linear-gradient(135deg,#F47B20,#CC2529); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">❤️ My Favourite Spots</div>
+  <!-- Leaderboard panel -->
+  <div class="panel" id="leaderboard">
+    <div class="panel-title">🏆 Top Spots — Community Ranked</div>
+    <div id="leaderboardList"><div style="color:var(--muted);font-size:0.85rem;">Search for restaurants first to build the leaderboard!</div></div>
+  </div>
+
+  <!-- Trending panel -->
+  <div class="panel" id="trendingPanel">
+    <div class="panel-title">📈 Trending This Week</div>
+    <div id="trendingList"><div style="color:var(--muted);font-size:0.85rem;">Loading trending spots...</div></div>
+  </div>
+
+  <!-- Favourites panel -->
+  <div class="panel" id="favouritesPanel">
+    <div class="panel-title">❤️ My Favourite Spots</div>
     <div id="favouritesList"></div>
   </div>
 
+  <div id="status"></div>
   <div id="results"></div>
 
   <footer>
     <img src="https://i.postimg.cc/gjNzkGw2/footer-obs.png" alt="Created by" style="width:min(320px,80vw); height:auto; opacity:0.1;"/>
   </footer>
 
+  <!-- PWA install banner -->
+  <div id="installBanner" style="display:none;">
+    <p>🚀 Add Food Blip to your home screen!</p>
+    <button onclick="installPWA()">Install</button>
+    <button id="installDismiss" onclick="document.getElementById('installBanner').style.display='none'">✕</button>
+  </div>
+
 <script type="module">
 
-  /* ── Init ── */
-  document.addEventListener("DOMContentLoaded", () => { initTheme(); renderHistory(); renderFavourites(); });
+  /* ══════════════════════════════════
+     INIT
+  ══════════════════════════════════ */
+  document.addEventListener("DOMContentLoaded", () => {
+    initTheme();
+    renderHistory();
+    renderFavourites();
+    initPWA();
+  });
 
-  /* ── Theme ── */
+  /* ══════════════════════════════════
+     THEME
+  ══════════════════════════════════ */
   window.toggleTheme = function() {
-    const t = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    const t = document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light";
     document.documentElement.setAttribute("data-theme", t);
-    localStorage.setItem("theme-preference", t);
+    localStorage.setItem("fb-theme", t);
   };
   function initTheme() {
-    document.documentElement.setAttribute("data-theme", localStorage.getItem("theme-preference") || "dark");
+    document.documentElement.setAttribute("data-theme", localStorage.getItem("fb-theme") || "dark");
   }
 
-  /* ── History ── */
-  function saveSearchToHistory(query, location) {
+  /* ══════════════════════════════════
+     CITY SELECTOR
+  ══════════════════════════════════ */
+  let activeCity = "Cape Town";
+  window.setCity = function(city) {
+    activeCity = city;
+    document.querySelectorAll(".city-pill").forEach(b => b.classList.remove("active"));
+    event.target.classList.add("active");
+    const loc = document.getElementById("location");
+    if (!loc.value || document.querySelectorAll(".city-pill.active").length) {
+      loc.value = city;
+    }
+  };
+
+  /* ══════════════════════════════════
+     SEARCH HISTORY
+  ══════════════════════════════════ */
+  function saveHistory(query, location) {
     if (!query || !location) return;
-    let list = JSON.parse(localStorage.getItem("fb-history")) || [];
+    let list = JSON.parse(localStorage.getItem("fb-history") || "[]");
     list = list.filter(i => !(i.query.toLowerCase() === query.toLowerCase() && i.location.toLowerCase() === location.toLowerCase()));
-    list.unshift({ query, location, label: `${query} (${location.split(',')[0].trim()})` });
-    if (list.length > 4) list.pop();
+    list.unshift({ query, location, label: `${query} · ${location.split(",")[0].trim()}` });
+    if (list.length > 5) list.pop();
     localStorage.setItem("fb-history", JSON.stringify(list));
     renderHistory();
   }
   function renderHistory() {
     const container = document.getElementById("historyContainer");
     const pills     = document.getElementById("historyPills");
-    const list      = JSON.parse(localStorage.getItem("fb-history")) || [];
+    const list      = JSON.parse(localStorage.getItem("fb-history") || "[]");
     if (!list.length) { container.style.display = "none"; return; }
     container.style.display = "flex";
     pills.innerHTML = list.map((item, i) =>
-      `<button class="history-pill" onclick="triggerHistorySearch(${i})">⏱️ ${item.label}</button>`
+      `<button class="history-pill" onclick="triggerHistory(${i})">⏱️ ${item.label}</button>`
     ).join("");
   }
-  window.triggerHistorySearch = function(i) {
-    const list = JSON.parse(localStorage.getItem("fb-history")) || [];
+  window.triggerHistory = function(i) {
+    const list = JSON.parse(localStorage.getItem("fb-history") || "[]");
     if (!list[i]) return;
     document.getElementById("query").value    = list[i].query;
     document.getElementById("location").value = list[i].location;
     window.search();
   };
 
-  /* ── Favourites ── */
-  function getFavourites() { return JSON.parse(localStorage.getItem("fb-favourites")) || []; }
-  function saveFavourites(list) { localStorage.setItem("fb-favourites", JSON.stringify(list)); }
+  /* ══════════════════════════════════
+     FAVOURITES
+  ══════════════════════════════════ */
+  function getFavs() { return JSON.parse(localStorage.getItem("fb-favs") || "[]"); }
+  function saveFavs(list) { localStorage.setItem("fb-favs", JSON.stringify(list)); }
+  function isFav(id) { return !!getFavs().find(f => f.id === id); }
 
-  window.toggleFav = function(placeId, name, address, rating) {
-    let favs = getFavourites();
-    const exists = favs.find(f => f.id === placeId);
-    if (exists) {
-      favs = favs.filter(f => f.id !== placeId);
+  window.toggleFav = function(id, name, address, rating) {
+    let favs = getFavs();
+    if (favs.find(f => f.id === id)) {
+      favs = favs.filter(f => f.id !== id);
     } else {
-      favs.push({ id: placeId, name, address, rating });
+      favs.push({ id, name, address, rating });
+      if (typeof confetti === "function") confetti({ particleCount: 40, spread: 50, origin: { y: 0.7 }, colors: ["#f87171","#fbbf24"] });
     }
-    saveFavourites(favs);
-    const btn = document.getElementById(`fav-${placeId}`);
-    if (btn) btn.textContent = favs.find(f => f.id === placeId) ? "❤️" : "🤍";
+    saveFavs(favs);
+    const btn = document.getElementById(`fav-${id}`);
+    if (btn) btn.textContent = isFav(id) ? "❤️" : "🤍";
     renderFavourites();
   };
-
-  function isFav(placeId) { return !!getFavourites().find(f => f.id === placeId); }
 
   function renderFavourites() {
-    const list = getFavourites();
     const el   = document.getElementById("favouritesList");
-    if (!el) return;
-    if (!list.length) {
-      el.innerHTML = `<div style="color:var(--muted); font-size:0.85rem;">No favourites yet — tap 🤍 on any restaurant card to save it!</div>`;
-      return;
-    }
+    const list = getFavs();
+    if (!list.length) { el.innerHTML = `<div style="color:var(--muted);font-size:0.85rem;">No favourites yet — tap 🤍 on any card to save it!</div>`; return; }
     el.innerHTML = list.map(f => `
-      <div style="display:flex; align-items:center; gap:12px; padding:10px; background:rgba(0,0,0,0.1); border-radius:10px; margin-bottom:8px;">
-        <div style="flex:1;">
-          <div style="font-weight:700; font-size:0.9rem;">${f.name}</div>
-          <div style="color:var(--muted); font-size:0.75rem;">${f.address}</div>
-        </div>
-        <div style="color:var(--accent); font-weight:700; font-size:0.85rem;">⭐ ${f.rating}</div>
-        <button onclick="toggleFav('${f.id}','${f.name.replace(/'/g,"\\'")}','${f.address.replace(/'/g,"\\'")}','${f.rating}')" style="background:none; border:none; font-size:1.1rem; cursor:pointer;">❌</button>
-      </div>
-    `).join("");
+      <div class="lb-row">
+        <div style="flex:1;"><div style="font-weight:700;font-size:0.9rem;">${f.name}</div><div style="color:var(--muted);font-size:0.75rem;">${f.address}</div></div>
+        <div style="color:var(--accent);font-weight:700;font-size:0.85rem;">⭐ ${f.rating}</div>
+        <button onclick="toggleFav('${f.id}','${f.name.replace(/'/g,"\\'")}','${f.address.replace(/'/g,"\\'")}','${f.rating}')" style="background:none;border:none;font-size:1rem;cursor:pointer;color:var(--red);">✕</button>
+      </div>`).join("");
   }
 
-  let favouritesOpen = false;
+  let favsOpen = false;
   window.toggleFavourites = function() {
-    favouritesOpen = !favouritesOpen;
+    favsOpen = !favsOpen;
     const panel = document.getElementById("favouritesPanel");
     const btn   = document.getElementById("favBtn");
-    panel.style.display   = favouritesOpen ? "block" : "none";
-    btn.style.background  = favouritesOpen ? "#450a0a" : "var(--card)";
-    btn.style.color       = favouritesOpen ? "#f87171" : "var(--muted)";
-    btn.style.borderColor = favouritesOpen ? "#f87171" : "var(--border)";
-    btn.textContent       = favouritesOpen ? "❤️ Hide Favourites" : "❤️ My Favourites";
+    panel.style.display   = favsOpen ? "block" : "none";
+    btn.style.background  = favsOpen ? "#450a0a" : "var(--card)";
+    btn.style.color       = favsOpen ? "#f87171" : "var(--muted)";
+    btn.style.borderColor = favsOpen ? "#f87171" : "var(--border)";
+    btn.textContent       = favsOpen ? "❤️ Hide Favourites" : "❤️ Favourites";
     renderFavourites();
   };
 
-  /* ── Sort ── */
-  let allResults   = [];
-  let currentSort  = "rating";
-
+  /* ══════════════════════════════════
+     SORT
+  ══════════════════════════════════ */
+  let allResults  = [];
+  let currentSort = "rating";
   window.sortResults = function(type) {
     currentSort = type;
     document.querySelectorAll(".sort-btn").forEach(b => b.classList.remove("active"));
     document.getElementById(`sort-${type}`).classList.add("active");
     const sorted = [...allResults];
-    if (type === "rating")   sorted.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    if (type === "rating")   sorted.sort((a, b) => (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0));
     if (type === "distance") sorted.sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
     if (type === "busy")     sorted.sort((a, b) => a.busy - b.busy);
     const container = document.getElementById("results");
-    sorted.forEach(place => {
-      const card = document.getElementById(`card-${place.place_id}`);
-      if (card) container.appendChild(card);
-    });
+    sorted.forEach(p => { const c = document.getElementById(`card-${p.place_id}`); if (c) container.appendChild(c); });
   };
 
-  /* ── WhatsApp ── */
-  function getWhatsAppShareUrl(place) {
-    const busy = place.busy || 0;
-    let status = "🟢 Quiet Line";
-    if (busy >= 75) status = "🔴 Packed / High Wait Time";
-    else if (busy >= 50) status = "🟠 Moderately Busy";
-    else if (busy >= 30) status = "🟡 Medium Line";
-    const text = `⚡ *LIVE TRAFFIC RADAR via Food Blip* ⚡\n\n🍔 *${place.name}*\n📍 _${place.address}_\n\n📊 *Live Meter:* ${busy}% capacity\n🚦 *Status:* ${status} (${place.busy_label})\n\n⭐ *Rating:* ${place.rating} (${place.reviews.toLocaleString()} reviews)\n🚗 *Drive:* ${place.distance} away (${place.drive_time} travel)\n\nCheck live updates on Food Blip 👉 https://foodblip.vercel.app`;
-    return `https://wa.me/?text=${encodeURIComponent(text)}`;
-  }
-
-  /* ── Firebase ── */
-  function waitForFirebase() {
-    return new Promise(resolve => {
-      if (window._db) return resolve();
-      const id = setInterval(() => { if (window._db) { clearInterval(id); resolve(); } }, 100);
-    });
-  }
-  async function loadHalaal(placeId) {
-    await waitForFirebase();
-    const snap = await window._getDoc(window._doc(window._db, "halaal", placeId));
-    return snap.exists() ? snap.data() : { yes: 0, no: 0, unsure: 0 };
-  }
-  async function voteHalaal(placeId, vote) {
-    await waitForFirebase();
-    const ref  = window._doc(window._db, "halaal", placeId);
-    const snap = await window._getDoc(ref);
-    if (snap.exists()) { await window._updateDoc(ref, { [vote]: window._increment(1) }); }
-    else { const d = { yes:0,no:0,unsure:0 }; d[vote]=1; await window._setDoc(ref, d); }
-    return loadHalaal(placeId);
-  }
-  async function loadReactions(placeId) {
-    await waitForFirebase();
-    const snap = await window._getDoc(window._doc(window._db, "reactions", placeId));
-    return snap.exists() ? snap.data() : { fire: 0, solid: 0, skip: 0 };
-  }
-  async function loadLiveTraffic(placeId) {
-    await waitForFirebase();
-    const snap = await window._getDoc(window._doc(window._db, "live_traffic", placeId));
-    return snap.exists() ? snap.data() : { quiet: 0, moderate: 0, packed: 0 };
-  }
-  window.submitLiveStatus = async function(placeId, statusType) {
-    await waitForFirebase();
-    const ref  = window._doc(window._db, "live_traffic", placeId);
-    const snap = await window._getDoc(ref);
-    if (snap.exists()) { await window._updateDoc(ref, { [statusType]: window._increment(1) }); }
-    else { const d = { quiet:0,moderate:0,packed:0 }; d[statusType]=1; await window._setDoc(ref, d); }
-    const updated = await loadLiveTraffic(placeId);
-    const el = document.getElementById(`live-verdict-${placeId}`);
-    if (el) { const v = getLiveVerdict(updated); el.textContent = v.text; el.style.color = v.color; }
-  };
-  window.react = async function(placeId, type) {
-    await waitForFirebase();
-    const ref  = window._doc(window._db, "reactions", placeId);
-    const snap = await window._getDoc(ref);
-    if (snap.exists()) { await window._updateDoc(ref, { [type]: window._increment(1) }); }
-    else { const d = { fire:0,solid:0,skip:0 }; d[type]=1; await window._setDoc(ref, d); }
-    const u = await loadReactions(placeId);
-    document.getElementById(`fire-${placeId}`).textContent  = `🔥 Amazing (${u.fire})`;
-    document.getElementById(`solid-${placeId}`).textContent = `👍 Solid (${u.solid})`;
-    document.getElementById(`skip-${placeId}`).textContent  = `👎 Skip It (${u.skip})`;
+  /* ══════════════════════════════════
+     TRENDING THIS WEEK
+  ══════════════════════════════════ */
+  let trendingOpen = false;
+  window.toggleTrending = async function() {
+    trendingOpen = !trendingOpen;
+    const panel = document.getElementById("trendingPanel");
+    const btn   = document.getElementById("trendingBtn");
+    panel.style.display   = trendingOpen ? "block" : "none";
+    btn.style.background  = trendingOpen ? "#1a0a2e" : "var(--card)";
+    btn.style.color       = trendingOpen ? "var(--purple)" : "var(--muted)";
+    btn.style.borderColor = trendingOpen ? "var(--purple)" : "var(--border)";
+    btn.textContent       = trendingOpen ? "📈 Hide Trending" : "📈 Trending";
+    if (trendingOpen) await loadTrending();
   };
 
-  /* ── Verdict helpers ── */
-  function getHalaalVerdict(data, systemGuess) {
-    const total = data.yes + data.no + data.unsure;
-    if (total === 0) return systemGuess === "likely" ? { text:"✅ Likely Halaal", color:"var(--green)" } : { text:"❓ Unknown — vote below", color:"var(--muted)" };
-    if (data.yes > data.no && data.yes > data.unsure) return { text:`✅ Halaal (${data.yes} votes)`, color:"var(--green)" };
-    if (data.no  > data.yes && data.no  > data.unsure) return { text:`❌ Not Halaal (${data.no} votes)`, color:"var(--red)" };
-    return { text:`⚠️ Unsure (${data.unsure} unsure)`, color:"var(--yellow)" };
-  }
-  function getLiveVerdict(data) {
-    const total = data.quiet + data.moderate + data.packed;
-    if (total === 0) return { text:"No live updates yet", color:"var(--muted)" };
-    if (data.quiet   > data.moderate && data.quiet   > data.packed) return { text:`🟢 Users say: No Line (${data.quiet} votes)`, color:"var(--green)" };
-    if (data.moderate > data.quiet   && data.moderate > data.packed) return { text:`🟠 Users say: ~10min Wait (${data.moderate} votes)`, color:"var(--yellow)" };
-    return { text:`🔴 Users say: Packed / 20m+ (${data.packed} votes)`, color:"var(--red)" };
-  }
-  function getBusyClass(busy) {
-    if (busy >= 75) return "busy-very";
-    if (busy >= 50) return "busy-fairly";
-    if (busy >= 30) return "busy-moderate";
-    return "busy-quiet";
-  }
-  function getRoute(lat, lng, dlat, dlng) {
-    return (lat && lng) ? `https://maps.google.com/?saddr=${lat},${lng}&daddr=${dlat},${dlng}` : `https://maps.google.com/?daddr=${dlat},${dlng}`;
-  }
-
-  /* ── Progress bar ── */
-  function showProgress() {
-    const b = document.getElementById("progressBar");
-    b.style.display = "block"; b.style.width = "0%";
-    requestAnimationFrame(() => { b.style.width = "85%"; b.style.transition = "width 2s ease"; });
-  }
-  function finishProgress() {
-    const b = document.getElementById("progressBar");
-    b.style.transition = "width 0.2s ease"; b.style.width = "100%";
-    setTimeout(() => { b.style.display = "none"; b.style.width = "0"; }, 300);
+  async function loadTrending() {
+    const list = document.getElementById("trendingList");
+    list.innerHTML = `<div style="color:var(--muted);font-size:0.85rem;"><span class="spinner"></span> Loading...</div>`;
+    await waitForFirebase();
+    try {
+      const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const snap = await window._getDocs(window._collection(window._db, "reactions"));
+      const entries = [];
+      snap.forEach(docSnap => {
+        const d = docSnap.data();
+        entries.push({ id: docSnap.id, name: d.name || docSnap.id, fire: d.fire || 0, solid: d.solid || 0, skip: d.skip || 0, total: (d.fire || 0) + (d.solid || 0) });
+      });
+      entries.sort((a, b) => b.total - a.total);
+      const top = entries.slice(0, 5);
+      if (!top.length) { list.innerHTML = `<div style="color:var(--muted);font-size:0.85rem;">No trending data yet — start voting on restaurants!</div>`; return; }
+      list.innerHTML = top.map((e, i) => `
+        <div class="lb-row">
+          <div style="font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:800;color:${i===0?'#F47B20':i===1?'#888':i===2?'#cd7f32':'var(--muted)'};">${i===0?'🥇':i===1?'🥈':i===2?'🥉':'#'+(i+1)}</div>
+          <div style="flex:1;"><div style="font-weight:700;font-size:0.9rem;">${e.name||e.id}</div><div style="color:var(--muted);font-size:0.75rem;">🔥 ${e.fire} Amazing · 👍 ${e.solid} Solid · 👎 ${e.skip} Skip</div></div>
+          <div style="color:var(--accent);font-weight:700;font-size:0.82rem;">+${e.total} votes</div>
+        </div>`).join("");
+    } catch(err) {
+      list.innerHTML = `<div style="color:var(--muted);font-size:0.85rem;">Could not load trending data.</div>`;
+    }
   }
 
-  /* ── Leaderboard ── */
+  /* ══════════════════════════════════
+     LEADERBOARD
+  ══════════════════════════════════ */
   let leaderboardData = {};
   let leaderboardOpen = false;
   window.toggleLeaderboard = function() {
     leaderboardOpen = !leaderboardOpen;
-    const board = document.getElementById("leaderboard");
+    const panel = document.getElementById("leaderboard");
     const btn   = document.getElementById("leaderboardBtn");
-    board.style.display   = leaderboardOpen ? "block" : "none";
-    btn.style.background  = leaderboardOpen ? "var(--bg)" : "var(--card)";
+    panel.style.display   = leaderboardOpen ? "block" : "none";
+    btn.style.background  = leaderboardOpen ? "#1a0a00" : "var(--card)";
     btn.style.color       = leaderboardOpen ? "var(--accent)" : "var(--muted)";
     btn.style.borderColor = leaderboardOpen ? "var(--accent)" : "var(--border)";
-    btn.textContent       = leaderboardOpen ? "🏆 Hide Leaderboard" : "🏆 Show Local Leaderboard";
+    btn.textContent       = leaderboardOpen ? "🏆 Hide Leaderboard" : "🏆 Leaderboard";
     if (leaderboardOpen) renderLeaderboard();
   };
   function renderLeaderboard() {
     const list    = document.getElementById("leaderboardList");
     const entries = Object.values(leaderboardData);
-    if (!entries.length) { list.innerHTML = `<div style="color:var(--muted);font-size:0.85rem;">Search for restaurants first!</div>`; return; }
+    if (!entries.length) { list.innerHTML = `<div style="color:var(--muted);font-size:0.85rem;">Search for restaurants first to build the leaderboard!</div>`; return; }
     entries.sort((a, b) => (b.fire + b.solid) - (a.fire + a.solid));
-    list.innerHTML = entries.slice(0,5).map((e,i) => `
-      <div style="display:flex; align-items:center; gap:12px; padding:10px; background:rgba(0,0,0,0.1); border-radius:10px;">
-        <div style="font-family:'Syne',sans-serif; font-size:1.2rem; font-weight:800; color:${i===0?'#F47B20':i===1?'#888':i===2?'#cd7f32':'var(--muted)'};">${i===0?'🥇':i===1?'🥈':i===2?'🥉':'#'+(i+1)}</div>
+    list.innerHTML = entries.slice(0, 5).map((e, i) => `
+      <div class="lb-row">
+        <div style="font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:800;color:${i===0?'#F47B20':i===1?'#888':i===2?'#cd7f32':'var(--muted)'};">${i===0?'🥇':i===1?'🥈':i===2?'🥉':'#'+(i+1)}</div>
         <div style="flex:1;"><div style="font-weight:700;font-size:0.9rem;">${e.name}</div><div style="color:var(--muted);font-size:0.75rem;">🔥 ${e.fire} Amazing · 👍 ${e.solid} Solid · 👎 ${e.skip} Skip</div></div>
         <div style="color:var(--accent);font-weight:700;font-size:0.85rem;">⭐ ${e.rating}</div>
       </div>`).join("");
   }
 
-  /* ── Halaal filter ── */
-  let halaalFilterOn = false;
+  /* ══════════════════════════════════
+     HALAAL FILTER
+  ══════════════════════════════════ */
+  let halaalOn = false;
   window.toggleHalaalFilter = function() {
-    halaalFilterOn = !halaalFilterOn;
+    halaalOn = !halaalOn;
     const btn = document.getElementById("halaalFilterBtn");
-    if (halaalFilterOn) { btn.style.background="#14532d"; btn.style.color="#4ade80"; btn.style.borderColor="#4ade80"; btn.textContent="✅ Halaal Only — ON"; }
-    else { btn.style.background="var(--card)"; btn.style.color="var(--muted)"; btn.style.borderColor="var(--border)"; btn.textContent="🕌 Show Halaal Only"; }
+    if (halaalOn) { btn.style.background="#14532d"; btn.style.color="#4ade80"; btn.style.borderColor="#4ade80"; btn.textContent="✅ Halaal ON"; }
+    else { btn.style.background="var(--card)"; btn.style.color="var(--muted)"; btn.style.borderColor="var(--border)"; btn.textContent="🕌 Halaal Only"; }
     document.querySelectorAll(".card").forEach(card => {
       const v = card.querySelector(".halaal-verdict");
-      card.style.display = halaalFilterOn ? (v && (v.textContent.includes("✅")||v.textContent.includes("Halaal ("))) ? "flex":"none" : "flex";
+      card.style.display = halaalOn ? (v && (v.textContent.includes("✅") || v.textContent.includes("Halaal ("))) ? "flex" : "none" : "flex";
     });
   };
 
-  /* ── Main search ── */
+  /* ══════════════════════════════════
+     FIREBASE
+  ══════════════════════════════════ */
+  function waitForFirebase() {
+    return new Promise(r => { if (window._db) return r(); const id = setInterval(() => { if (window._db) { clearInterval(id); r(); } }, 100); });
+  }
+  async function loadHalaal(id) {
+    await waitForFirebase();
+    const snap = await window._getDoc(window._doc(window._db, "halaal", id));
+    return snap.exists() ? snap.data() : { yes:0,no:0,unsure:0 };
+  }
+  async function voteHalaal(id, vote) {
+    await waitForFirebase();
+    const ref = window._doc(window._db, "halaal", id);
+    const snap = await window._getDoc(ref);
+    if (snap.exists()) { await window._updateDoc(ref, { [vote]: window._increment(1) }); }
+    else { const d={yes:0,no:0,unsure:0}; d[vote]=1; await window._setDoc(ref,d); }
+    return loadHalaal(id);
+  }
+  async function loadReactions(id) {
+    await waitForFirebase();
+    const snap = await window._getDoc(window._doc(window._db, "reactions", id));
+    return snap.exists() ? snap.data() : { fire:0,solid:0,skip:0 };
+  }
+  async function saveReactionName(id, name) {
+    await waitForFirebase();
+    const ref  = window._doc(window._db, "reactions", id);
+    const snap = await window._getDoc(ref);
+    if (!snap.exists()) { await window._setDoc(ref, { fire:0,solid:0,skip:0,name }); }
+    else if (!snap.data().name) { await window._updateDoc(ref, { name }); }
+  }
+  async function loadLiveTraffic(id) {
+    await waitForFirebase();
+    const snap = await window._getDoc(window._doc(window._db, "live_traffic", id));
+    return snap.exists() ? snap.data() : { quiet:0,moderate:0,packed:0 };
+  }
+  window.submitLiveStatus = async function(id, type) {
+    await waitForFirebase();
+    const ref  = window._doc(window._db, "live_traffic", id);
+    const snap = await window._getDoc(ref);
+    if (snap.exists()) { await window._updateDoc(ref, { [type]: window._increment(1) }); }
+    else { const d={quiet:0,moderate:0,packed:0}; d[type]=1; await window._setDoc(ref,d); }
+    const u = await loadLiveTraffic(id);
+    const el = document.getElementById(`live-verdict-${id}`);
+    if (el) { const v=getLiveVerdict(u); el.textContent=v.text; el.style.color=v.color; }
+  };
+  window.react = async function(id, type) {
+    await waitForFirebase();
+    const ref  = window._doc(window._db, "reactions", id);
+    const snap = await window._getDoc(ref);
+    if (snap.exists()) { await window._updateDoc(ref, { [type]: window._increment(1) }); }
+    else { const d={fire:0,solid:0,skip:0}; d[type]=1; await window._setDoc(ref,d); }
+    const u = await loadReactions(id);
+    document.getElementById(`fire-${id}`).textContent  = `🔥 Amazing (${u.fire})`;
+    document.getElementById(`solid-${id}`).textContent = `👍 Solid (${u.solid})`;
+    document.getElementById(`skip-${id}`).textContent  = `👎 Skip It (${u.skip})`;
+    if (leaderboardData[id]) { leaderboardData[id].fire=u.fire; leaderboardData[id].solid=u.solid; leaderboardData[id].skip=u.skip; if(leaderboardOpen) renderLeaderboard(); }
+  };
+
+  /* ══════════════════════════════════
+     VERDICT HELPERS
+  ══════════════════════════════════ */
+  function getHalaalVerdict(d, guess) {
+    const t = d.yes+d.no+d.unsure;
+    if (!t) return guess==="likely" ? {text:"✅ Likely Halaal",color:"var(--green)"} : {text:"❓ Unknown — vote below",color:"var(--muted)"};
+    if (d.yes>d.no && d.yes>d.unsure) return {text:`✅ Halaal (${d.yes} votes)`,color:"var(--green)"};
+    if (d.no>d.yes && d.no>d.unsure)  return {text:`❌ Not Halaal (${d.no} votes)`,color:"var(--red)"};
+    return {text:`⚠️ Unsure (${d.unsure} unsure)`,color:"var(--yellow)"};
+  }
+  function getLiveVerdict(d) {
+    const t = d.quiet+d.moderate+d.packed;
+    if (!t) return {text:"No live updates yet",color:"var(--muted)"};
+    if (d.quiet>d.moderate && d.quiet>d.packed)       return {text:`🟢 No Line (${d.quiet} reports)`,color:"var(--green)"};
+    if (d.moderate>d.quiet && d.moderate>d.packed)    return {text:`🟠 ~10min Wait (${d.moderate} reports)`,color:"var(--yellow)"};
+    return {text:`🔴 Packed / 20m+ (${d.packed} reports)`,color:"var(--red)"};
+  }
+  function getBusyClass(b) { return b>=75?"busy-very":b>=50?"busy-fairly":b>=30?"busy-moderate":"busy-quiet"; }
+  function getRoute(lat,lng,dlat,dlng) { return (lat&&lng)?`https://maps.google.com/?saddr=${lat},${lng}&daddr=${dlat},${dlng}`:`https://maps.google.com/?daddr=${dlat},${dlng}`; }
+  function getWaUrl(place) {
+    const busy=place.busy||0;
+    let status = busy>=75?"🔴 Packed":busy>=50?"🟠 Moderately Busy":busy>=30?"🟡 Medium Line":"🟢 Quiet";
+    return `https://wa.me/?text=${encodeURIComponent(`⚡ *Food Blip — Live Radar* ⚡\n\n🍔 *${place.name}*\n📍 ${place.address}\n\n🚦 *Status:* ${status}\n⭐ *Rating:* ${place.rating} (${place.reviews.toLocaleString()} reviews)\n🚗 ${place.distance} away · ${place.drive_time}\n\n👉 foodblip.vercel.app`)}`;
+  }
+
+  /* ══════════════════════════════════
+     PROGRESS BAR
+  ══════════════════════════════════ */
+  function showProgress() {
+    const b=document.getElementById("progressBar"); b.style.display="block"; b.style.width="0";
+    requestAnimationFrame(()=>{ b.style.width="80%"; b.style.transition="width 2.5s ease"; });
+  }
+  function finishProgress() {
+    const b=document.getElementById("progressBar"); b.style.transition="width 0.2s ease"; b.style.width="100%";
+    setTimeout(()=>{ b.style.display="none"; b.style.width="0"; },350);
+  }
+
+  /* ══════════════════════════════════
+     MAIN SEARCH
+  ══════════════════════════════════ */
   window.search = async function() {
     const query    = document.getElementById("query").value.trim();
     const location = document.getElementById("location").value.trim();
-    if (!query || !location) { document.getElementById("status").innerHTML = "⚠️ Please fill in both fields."; return; }
-
-    saveSearchToHistory(query, location);
+    if (!query || !location) { document.getElementById("status").innerHTML="⚠️ Please fill in both fields."; return; }
+    saveHistory(query, location);
     document.getElementById("status").innerHTML = "";
     document.getElementById("sortBar").style.display = "none";
     const container = document.getElementById("results");
-    container.innerHTML = `
-      <div class="emoji-loader">
-        <span>🍔</span><span>🌮</span><span>🍕</span>
-        <p>Finding spots near you...</p>
-      </div>`;
+    container.innerHTML = `<div class="emoji-loader"><span>🍔</span><span>🌮</span><span>🍕</span><p>Finding spots near you...</p></div>`;
     showProgress();
-
-    let userLat = null, userLng = null;
+    let userLat=null, userLng=null;
     try {
       await new Promise(res => navigator.geolocation.getCurrentPosition(
-        pos => { userLat = pos.coords.latitude; userLng = pos.coords.longitude; res(); },
-        () => res(), { timeout: 3000 }
+        pos => { userLat=pos.coords.latitude; userLng=pos.coords.longitude; res(); },
+        () => res(), { timeout:3000 }
       ));
     } catch(e) {}
-
     try {
       const res  = await fetch(`/search?query=${encodeURIComponent(query)}&location=${encodeURIComponent(location)}`);
       const data = await res.json();
-      container.innerHTML = "";
-      finishProgress();
-
-      if (data.error) { document.getElementById("status").innerHTML = `❌ ${data.error} — try a different spelling?`; return; }
+      container.innerHTML = ""; finishProgress();
+      if (data.error) { document.getElementById("status").innerHTML=`❌ ${data.error} — try a different spelling?`; return; }
       document.getElementById("status").innerHTML = `Found <strong>${data.length}</strong> spots`;
       document.getElementById("sortBar").style.display = "flex";
       allResults = data;
-
       for (const place of data) {
         const [halaalData, reactionData, liveData] = await Promise.all([
-          loadHalaal(place.place_id),
-          loadReactions(place.place_id),
-          loadLiveTraffic(place.place_id)
+          loadHalaal(place.place_id), loadReactions(place.place_id), loadLiveTraffic(place.place_id)
         ]);
-
+        saveReactionName(place.place_id, place.name);
         const verdict     = getHalaalVerdict(halaalData, place.halaal);
         const liveVerdict = getLiveVerdict(liveData);
         const busyClass   = getBusyClass(place.busy);
         const routeUrl    = getRoute(userLat, userLng, place.dest_lat, place.dest_lng);
-        const waUrl       = getWhatsAppShareUrl(place);
-        const stars       = place.rating !== "N/A" ? "★".repeat(Math.round(place.rating))+"☆".repeat(5-Math.round(place.rating)) : "—";
+        const waUrl       = getWaUrl(place);
+        const stars       = place.rating!=="N/A" ? "★".repeat(Math.round(place.rating))+"☆".repeat(5-Math.round(place.rating)) : "—";
         const openTag     = place.open_now ? `<span class="tag open">🟢 Open Now</span>` : `<span class="tag closed">🔴 Closed</span>`;
         const favHeart    = isFav(place.place_id) ? "❤️" : "🤍";
         const photoEl     = place.photo_url
           ? `<img class="card-photo" src="${place.photo_url}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'card-photo-placeholder\\'>🍽️</div>';" alt="${place.name}"/>`
           : `<div class="card-photo-placeholder">🍽️</div>`;
         const peakBars    = (place.peak_hours||[]).map((b,h) =>
-          `<div title="${h}:00 — ${b}% busy" style="flex:1; height:${b}%; background:${b>=75?'#f87171':b>=50?'#f97316':b>=30?'#fbbf24':'#4ade80'}; border-radius:2px; opacity:${h===new Date().getHours()?1:0.4};"></div>`
+          `<div title="${h}:00 — ${b}% busy" style="flex:1;height:${b}%;background:${b>=75?'#f87171':b>=50?'#f97316':b>=30?'#fbbf24':'#4ade80'};border-radius:2px;opacity:${h===new Date().getHours()?1:0.35};transition:opacity 0.2s;"></div>`
         ).join('');
-
         leaderboardData[place.place_id] = { name:place.name, rating:place.rating, fire:reactionData.fire, solid:reactionData.solid, skip:reactionData.skip };
         if (leaderboardOpen) renderLeaderboard();
-
         container.insertAdjacentHTML('beforeend', `
           <div class="card" id="card-${place.place_id}">
             <div class="photo-wrap">
@@ -527,18 +655,11 @@
             <div class="card-body">
               <div class="card-name">${place.name}</div>
               <div class="card-address">${place.address}</div>
-              <div class="rating-row">
-                <span class="stars">${stars}</span>
-                <strong>${place.rating}</strong>
-                <span class="review-count">(${place.reviews.toLocaleString()} reviews)</span>
-              </div>
+              <div class="rating-row"><span class="stars">${stars}</span><strong>${place.rating}</strong><span class="review-count">(${place.reviews.toLocaleString()} reviews)</span></div>
               <div class="distance-row">📍 <span>${place.distance}</span> &nbsp;·&nbsp; 🚗 <span>${place.drive_time}</span></div>
               <div class="tags">${openTag}</div>
               <div class="crowd-live-card">
-                <div class="crowd-live-header">
-                  <span>⚡ LIVE CROWD STATUS</span>
-                  <span id="live-verdict-${place.place_id}" style="color:${liveVerdict.color}">${liveVerdict.text}</span>
-                </div>
+                <div class="crowd-live-header"><span>⚡ LIVE CROWD STATUS</span><span id="live-verdict-${place.place_id}" style="color:${liveVerdict.color}">${liveVerdict.text}</span></div>
                 <div class="crowd-live-buttons">
                   <button class="crowd-btn" onclick="submitLiveStatus('${place.place_id}','quiet')">🟢 No Line</button>
                   <button class="crowd-btn" onclick="submitLiveStatus('${place.place_id}','moderate')">🟠 ~10m Wait</button>
@@ -546,21 +667,14 @@
                 </div>
               </div>
               <div class="busy-section">
-                <div class="busy-label-row">
-                  <span>Typical Density Meter</span>
-                  <span style="color:var(--accent);font-weight:700">${place.busy_label}</span>
-                </div>
-                <div class="busy-gauge-track">
-                  <div class="busy-gauge-fill ${busyClass}" style="--target-width:${place.busy}%"></div>
-                </div>
+                <div class="busy-label-row"><span>Typical Density Meter</span><span style="color:var(--accent);font-weight:700">${place.busy_label}</span></div>
+                <div class="busy-gauge-track"><div class="busy-gauge-fill ${busyClass}" style="--target-width:${place.busy}%"></div></div>
                 <div style="font-size:0.72rem;color:var(--muted);margin-bottom:6px;">Based on typical patterns for this time</div>
                 <div style="font-size:0.75rem;color:var(--muted);margin-bottom:4px;">📊 Busy throughout the day</div>
-                <div style="display:flex; align-items:flex-end; gap:2px; height:32px;">${peakBars}</div>
-                <div style="display:flex; justify-content:space-between; font-size:0.65rem; color:var(--muted); margin-top:2px;">
-                  <span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>11pm</span>
-                </div>
+                <div style="display:flex;align-items:flex-end;gap:2px;height:32px;">${peakBars}</div>
+                <div style="display:flex;justify-content:space-between;font-size:0.65rem;color:var(--muted);margin-top:2px;"><span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>11pm</span></div>
               </div>
-              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 <button class="react-btn" onclick="react('${place.place_id}','fire')"  id="fire-${place.place_id}">🔥 Amazing (${reactionData.fire})</button>
                 <button class="react-btn" onclick="react('${place.place_id}','solid')" id="solid-${place.place_id}">👍 Solid (${reactionData.solid})</button>
                 <button class="react-btn" onclick="react('${place.place_id}','skip')"  id="skip-${place.place_id}">👎 Skip It (${reactionData.skip})</button>
@@ -581,71 +695,65 @@
               <a class="btn-route" href="${routeUrl}" target="_blank">🧭 Get Route</a>
             </div>
             <div style="padding:0 12px 12px;">
-              <a href="${waUrl}" target="_blank" style="display:block; text-align:center; background:#25D366; border-radius:10px; padding:9px; color:#fff; text-decoration:none; font-weight:700; font-size:0.82rem; font-family:'Syne',sans-serif; transition:opacity 0.2s;">📲 Share on WhatsApp</a>
+              <a href="${waUrl}" target="_blank" style="display:block;text-align:center;background:#25D366;border-radius:10px;padding:9px;color:#fff;text-decoration:none;font-weight:700;font-size:0.82rem;font-family:'Syne',sans-serif;transition:opacity 0.2s;">📲 Share on WhatsApp</a>
             </div>
           </div>`);
       }
-
-      if (halaalFilterOn) {
-        document.querySelectorAll(".card").forEach(card => {
-          const v = card.querySelector(".halaal-verdict");
-          card.style.display = (v && (v.textContent.includes("✅")||v.textContent.includes("Halaal ("))) ? "flex" : "none";
-        });
-      }
-
+      if (halaalOn) window.toggleHalaalFilter(), window.toggleHalaalFilter();
       setTimeout(() => {
-        let topRated = false;
+        let hasTop = false;
         data.forEach(place => {
           const card = document.getElementById(`card-${place.place_id}`);
           if (!card) return;
           const fill = card.querySelector(".busy-gauge-fill");
           if (fill) fill.classList.add("animated");
-          if (place.rating !== "N/A" && parseFloat(place.rating) >= 4.5) topRated = true;
+          if (place.rating !== "N/A" && parseFloat(place.rating) >= 4.5) hasTop = true;
         });
-        if (topRated && typeof confetti === "function") {
-          confetti({ particleCount:120, spread:70, origin:{y:0.6}, colors:['#F47B20','#CC2529','#fbbf24'] });
-        }
+        if (hasTop && typeof confetti === "function") confetti({ particleCount:120, spread:70, origin:{y:0.6}, colors:["#F47B20","#CC2529","#fbbf24"] });
       }, 350);
-
     } catch(err) {
-      container.innerHTML = "";
-      finishProgress();
-      document.getElementById("status").innerHTML = "❌ Something went wrong. Make sure app.py is running.";
+      container.innerHTML = ""; finishProgress();
+      document.getElementById("status").innerHTML = "❌ Something went wrong. Make sure the app is running.";
     }
   };
 
-  /* ── Halaal vote ── */
-  window.vote = async function(placeId, vote, systemGuess) {
-    const section   = document.getElementById(`halaal-${placeId}`);
-    const verdictEl = section.querySelector(".halaal-verdict");
-    const votesEl   = section.querySelector(".halaal-votes");
-    verdictEl.textContent = "Saving your vote...";
-    const updated = await voteHalaal(placeId, vote);
-    const verdict = getHalaalVerdict(updated, systemGuess);
-    verdictEl.textContent = verdict.text;
-    verdictEl.style.color = verdict.color;
-    votesEl.textContent   = `Yes: ${updated.yes} | No: ${updated.no} | Unsure: ${updated.unsure}`;
+  /* ══════════════════════════════════
+     HALAAL VOTE
+  ══════════════════════════════════ */
+  window.vote = async function(id, vote, guess) {
+    const section = document.getElementById(`halaal-${id}`);
+    const vEl = section.querySelector(".halaal-verdict");
+    const wEl = section.querySelector(".halaal-votes");
+    vEl.textContent = "Saving...";
+    const u = await voteHalaal(id, vote);
+    const v = getHalaalVerdict(u, guess);
+    vEl.textContent = v.text; vEl.style.color = v.color;
+    wEl.textContent = `Yes: ${u.yes} | No: ${u.no} | Unsure: ${u.unsure}`;
   };
 
-  /* ── Surprise Me ── */
+  /* ══════════════════════════════════
+     SURPRISE ME
+  ══════════════════════════════════ */
   window.surpriseMe = async function() {
     const location = document.getElementById("location").value.trim();
     if (!location) { alert("Please enter or detect your location first!"); return; }
-    const queries = ["restaurant","food","cafe","grill","kitchen"];
+    const queries = ["restaurant","food","cafe","grill","kitchen","pizza","burger","sushi"];
     document.getElementById("query").value = queries[Math.floor(Math.random()*queries.length)];
     await window.search();
     setTimeout(() => {
       const cards = document.querySelectorAll(".card");
       if (cards.length) {
         const pick = cards[Math.floor(Math.random()*cards.length)];
-        pick.style.border    = "2px solid #a855f7";
-        pick.style.boxShadow = "0 0 20px rgba(168,85,247,0.4)";
+        pick.style.border    = "2px solid var(--purple)";
+        pick.style.boxShadow = "0 0 24px rgba(168,85,247,0.35)";
         pick.scrollIntoView({ behavior:"smooth", block:"center" });
       }
     }, 4000);
   };
 
-  /* ── Detect location ── */
+  /* ══════════════════════════════════
+     DETECT LOCATION
+  ══════════════════════════════════ */
   window.detectLocation = function() {
     const btn = document.querySelector("button[onclick='detectLocation()']");
     btn.textContent = "⏳";
@@ -661,7 +769,32 @@
     );
   };
 
-  /* ── Keyboard shortcuts ── */
+  /* ══════════════════════════════════
+     PWA
+  ══════════════════════════════════ */
+  let deferredPrompt = null;
+  function initPWA() {
+    window.addEventListener("beforeinstallprompt", e => {
+      e.preventDefault(); deferredPrompt = e;
+      if (!localStorage.getItem("fb-pwa-dismissed")) {
+        setTimeout(() => { document.getElementById("installBanner").style.display = "flex"; }, 3000);
+      }
+    });
+  }
+  window.installPWA = async function() {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === "accepted") document.getElementById("installBanner").style.display = "none";
+    deferredPrompt = null;
+  };
+  document.getElementById("installDismiss")?.addEventListener("click", () => {
+    localStorage.setItem("fb-pwa-dismissed", "1");
+  });
+
+  /* ══════════════════════════════════
+     KEYBOARD
+  ══════════════════════════════════ */
   document.getElementById("query").addEventListener("keyup",    e => { if (e.key==="Enter") window.search(); });
   document.getElementById("location").addEventListener("keyup", e => { if (e.key==="Enter") window.search(); });
 
