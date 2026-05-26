@@ -11,7 +11,7 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, collection, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, collection, query, orderBy, limit, getDocs, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     const firebaseConfig = {
       apiKey: "AIzaSyATNHXHDRokeeiP6sjzPK1zUeAHKFrEYBQ",
       authDomain: "foodblip-1a771.firebaseapp.com",
@@ -33,6 +33,8 @@
     window._orderBy = orderBy;
     window._limit = limit;
     window._getDocs = getDocs;
+    window._addDoc = addDoc;
+    window._serverTimestamp = serverTimestamp;
   </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -47,7 +49,20 @@
       --text: #1e293b; --muted: #64748b; --green: #16a34a;
       --red: #dc2626; --yellow: #d97706; --purple: #7c3aed;
     }
-    body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; padding: 0 16px 100px; transition: background 0.3s, color 0.3s; }
+    body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; padding: 0 16px 100px; transition: background 0.3s, color 0.3s; overscroll-behavior-y: contain; }
+
+    /* ── Pull to refresh ── */
+    #ptr-indicator {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 9998;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      height: 0; overflow: hidden; background: var(--card);
+      border-bottom: 1px solid var(--border);
+      transition: height 0.2s ease; font-size: 0.85rem; color: var(--muted);
+      font-family: 'Syne', sans-serif; font-weight: 700;
+    }
+    #ptr-indicator.ptr-ready { color: var(--accent); }
+    #ptr-indicator .ptr-arrow { font-size: 1.2rem; transition: transform 0.3s; }
+    #ptr-indicator.ptr-ready .ptr-arrow { transform: rotate(180deg); }
 
     /* ── Header ── */
     header { text-align: center; padding: 48px 0 24px; position: relative; }
@@ -77,24 +92,24 @@
     .history-pill { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 6px 14px; font-size: 0.8rem; color: var(--text); cursor: pointer; transition: all 0.2s; font-family: 'DM Sans', sans-serif; }
     .history-pill:hover { border-color: var(--accent); background: rgba(255,106,0,0.05); }
 
-    /* ── Toolbar (centered) ── */
+    /* ── Toolbar ── */
     .toolbar { max-width: var(--max); margin: 0 auto 12px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; align-items: center; }
     .tool-btn { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 18px; color: var(--muted); font-size: 0.82rem; font-weight: 700; font-family: 'Syne', sans-serif; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
     .tool-btn:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
     .tool-btn:active { transform: scale(0.96); }
 
-    /* ── Sort bar (centered) ── */
+    /* ── Sort bar ── */
     .sort-bar { max-width: var(--max); margin: 0 auto 16px; display: none; gap: 8px; flex-wrap: wrap; justify-content: center; align-items: center; }
     .sort-label { font-size: 0.78rem; color: var(--muted); font-weight: 700; font-family: 'Syne', sans-serif; }
     .sort-btn { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 6px 14px; font-size: 0.78rem; font-weight: 700; font-family: 'Syne', sans-serif; color: var(--muted); cursor: pointer; transition: all 0.2s; }
     .sort-btn:hover { border-color: var(--accent); color: var(--accent); }
     .sort-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
-    /* ── Panels (leaderboard, favourites, trending) ── */
+    /* ── Panels ── */
     .panel { max-width: var(--max); margin: 0 auto 20px; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; display: none; }
     .panel-title { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 800; margin-bottom: 12px; background: linear-gradient(135deg,#F47B20,#CC2529); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 
-    /* ── Cards grid ── */
+    /* ── Cards ── */
     #results { max-width: var(--max); margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 20px; }
     .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s; }
     .card:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
@@ -108,11 +123,17 @@
     .review-count { color: var(--muted); font-size: 0.78rem; }
     .distance-row { display: flex; align-items: center; gap: 6px; font-size: 0.83rem; color: var(--muted); }
     .distance-row span { color: var(--text); font-weight: 500; }
-    .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
     .tag { background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 20px; padding: 3px 11px; font-size: 0.76rem; color: var(--muted); }
     [data-theme="light"] .tag { background: rgba(0,0,0,0.03); }
     .tag.open { color: var(--green); border-color: var(--green); }
     .tag.closed { color: var(--red); border-color: var(--red); }
+
+    /* ── Favicon chip ── */
+    .favicon-chip { display: inline-flex; align-items: center; gap: 5px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 20px; padding: 3px 10px; font-size: 0.76rem; color: var(--muted); text-decoration: none; transition: all 0.2s; }
+    [data-theme="light"] .favicon-chip { background: rgba(0,0,0,0.03); }
+    .favicon-chip:hover { border-color: #1877F2; color: #1877F2; background: rgba(24,119,242,0.08); }
+    .favicon-chip img { width: 14px; height: 14px; border-radius: 2px; object-fit: contain; }
 
     /* ── Busy gauge ── */
     .busy-section { display: flex; flex-direction: column; gap: 6px; }
@@ -126,7 +147,7 @@
     .busy-fairly { background: #f97316; }
     .busy-very { background: var(--red); }
 
-    /* ── Live crowd card ── */
+    /* ── Live crowd ── */
     .crowd-live-card { background: rgba(168,85,247,0.08); border: 1px dashed var(--purple); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
     .crowd-live-header { display: flex; justify-content: space-between; font-size: 0.75rem; font-weight: bold; color: var(--purple); font-family: 'Syne', sans-serif; }
     .crowd-live-buttons { display: flex; gap: 4px; }
@@ -184,8 +205,30 @@
     .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 8px; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* ── Add Restaurant Modal ── */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 2000; align-items: center; justify-content: center; padding: 16px; backdrop-filter: blur(4px); }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 24px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; }
+    .modal-title { font-family: 'Syne', sans-serif; font-size: 1.2rem; font-weight: 800; background: linear-gradient(135deg,#F47B20,#CC2529); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .modal-close { background: none; border: none; font-size: 1.3rem; cursor: pointer; color: var(--muted); transition: color 0.2s; }
+    .modal-close:hover { color: var(--red); }
+    .modal label { font-size: 0.8rem; font-weight: 700; color: var(--muted); font-family: 'Syne', sans-serif; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 6px; }
+    .modal input, .modal textarea, .modal select {
+      width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px 14px; color: var(--text); font-size: 0.9rem; font-family: 'DM Sans', sans-serif;
+      outline: none; transition: border 0.2s; resize: none;
+    }
+    .modal input:focus, .modal textarea:focus, .modal select:focus { border-color: var(--accent); }
+    .modal textarea { min-height: 80px; }
+    .modal-submit { background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 12px; padding: 14px; color: #fff; font-size: 1rem; font-weight: 700; font-family: 'Syne', sans-serif; cursor: pointer; transition: opacity 0.2s; width: 100%; }
+    .modal-submit:hover { opacity: 0.88; }
+    .modal-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    .modal-success { text-align: center; padding: 20px 0; font-size: 1.1rem; font-weight: 700; color: var(--green); }
+    .field-group { display: flex; flex-direction: column; gap: 4px; }
+
     /* ── PWA install banner ── */
-    #installBanner { display: none; position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--card); border: 1px solid var(--accent); border-radius: 16px; padding: 14px 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); z-index: 1000; display: flex; align-items: center; gap: 12px; max-width: 380px; width: calc(100% - 32px); }
+    #installBanner { display: none; position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--card); border: 1px solid var(--accent); border-radius: 16px; padding: 14px 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); z-index: 1000; align-items: center; gap: 12px; max-width: 380px; width: calc(100% - 32px); }
     #installBanner p { flex: 1; font-size: 0.85rem; color: var(--text); font-weight: 500; }
     #installBanner button { background: linear-gradient(135deg,var(--accent),var(--accent2)); border: none; border-radius: 8px; padding: 8px 16px; color: #fff; font-weight: 700; font-family: 'Syne', sans-serif; cursor: pointer; font-size: 0.82rem; white-space: nowrap; }
     #installDismiss { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1.1rem; padding: 4px; }
@@ -199,6 +242,11 @@
   </style>
 </head>
 <body>
+
+  <div id="ptr-indicator">
+    <span class="ptr-arrow">↓</span>
+    <span id="ptr-text">Pull down to refresh</span>
+  </div>
 
   <div class="progress-bar" id="progressBar" style="width:0; display:none;"></div>
 
@@ -223,11 +271,11 @@
   <!-- City selector -->
   <div class="city-selector" id="citySelector">
     <span class="city-label">📍 City:</span>
-    <button class="city-pill active" onclick="setCity('Cape Town')">Cape Town</button>
-    <button class="city-pill" onclick="setCity('Johannesburg')">Johannesburg</button>
-    <button class="city-pill" onclick="setCity('Durban')">Durban</button>
-    <button class="city-pill" onclick="setCity('Pretoria')">Pretoria</button>
-    <button class="city-pill" onclick="setCity('Port Elizabeth')">Port Elizabeth</button>
+    <button class="city-pill active" onclick="setCity('Cape Town',event)">Cape Town</button>
+    <button class="city-pill" onclick="setCity('Johannesburg',event)">Johannesburg</button>
+    <button class="city-pill" onclick="setCity('Durban',event)">Durban</button>
+    <button class="city-pill" onclick="setCity('Pretoria',event)">Pretoria</button>
+    <button class="city-pill" onclick="setCity('Port Elizabeth',event)">Port Elizabeth</button>
   </div>
 
   <!-- Recent searches -->
@@ -236,15 +284,16 @@
     <div id="historyPills" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
   </div>
 
-  <!-- Toolbar — centered -->
+  <!-- Toolbar -->
   <div class="toolbar">
     <button class="tool-btn" onclick="toggleLeaderboard()" id="leaderboardBtn">🏆 Leaderboard</button>
     <button class="tool-btn" onclick="toggleTrending()"    id="trendingBtn">📈 Trending</button>
     <button class="tool-btn" onclick="toggleHalaalFilter()" id="halaalFilterBtn">🕌 Halaal Only</button>
     <button class="tool-btn" onclick="toggleFavourites()"  id="favBtn">❤️ Favourites</button>
+    <button class="tool-btn" onclick="openAddRestaurant()" id="addRestBtn" style="color: var(--accent); border-color: var(--accent);">➕ Add Restaurant</button>
   </div>
 
-  <!-- Sort bar — centered -->
+  <!-- Sort bar -->
   <div class="sort-bar" id="sortBar">
     <span class="sort-label">Sort:</span>
     <button class="sort-btn active" onclick="sortResults('rating')"   id="sort-rating">⭐ Rating</button>
@@ -284,6 +333,69 @@
     <button id="installDismiss" onclick="document.getElementById('installBanner').style.display='none'">✕</button>
   </div>
 
+  <!-- Add Restaurant Modal -->
+  <div class="modal-overlay" id="addRestModal">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">➕ Add a Restaurant</span>
+        <button class="modal-close" onclick="closeAddRestaurant()">✕</button>
+      </div>
+      <p style="font-size:0.82rem; color:var(--muted);">Know a spot that's not showing up? Submit it and we'll review it. 🙌</p>
+      <div class="field-group">
+        <label>Restaurant Name *</label>
+        <input type="text" id="ar-name" placeholder="e.g. Bismillah Grill"/>
+      </div>
+      <div class="field-group">
+        <label>Address / Area *</label>
+        <input type="text" id="ar-address" placeholder="e.g. 12 Main Rd, Kuilsriver, Cape Town"/>
+      </div>
+      <div class="field-group">
+        <label>Phone Number</label>
+        <input type="tel" id="ar-phone" placeholder="e.g. 021 123 4567"/>
+      </div>
+      <div class="field-group">
+        <label>Facebook Page URL</label>
+        <input type="url" id="ar-facebook" placeholder="https://facebook.com/yourpage"/>
+      </div>
+      <div class="field-group">
+        <label>Website URL</label>
+        <input type="url" id="ar-website" placeholder="https://yourrestaurant.co.za"/>
+      </div>
+      <div class="field-group">
+        <label>Cuisine Type</label>
+        <select id="ar-cuisine">
+          <option value="">Select cuisine...</option>
+          <option>South African</option>
+          <option>Cape Malay</option>
+          <option>Halaal</option>
+          <option>Indian</option>
+          <option>Fast Food</option>
+          <option>Pizza</option>
+          <option>Burgers</option>
+          <option>Seafood</option>
+          <option>Steakhouse</option>
+          <option>Sushi</option>
+          <option>Cafe / Coffee</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label>Is it Halaal?</label>
+        <select id="ar-halaal">
+          <option value="unknown">Not Sure</option>
+          <option value="yes">Yes — Halaal Certified</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label>Any extra info? (optional)</label>
+        <textarea id="ar-notes" placeholder="e.g. Hidden gem, great for families, only open weekends..."></textarea>
+      </div>
+      <div id="ar-status"></div>
+      <button class="modal-submit" id="ar-submit" onclick="submitRestaurant()">🚀 Submit Restaurant</button>
+    </div>
+  </div>
+
 <script type="module">
 
   /* ══════════════════════════════════
@@ -294,7 +406,47 @@
     renderHistory();
     renderFavourites();
     initPWA();
+    initPullToRefresh();
   });
+
+  /* ══════════════════════════════════
+     PULL TO REFRESH
+  ══════════════════════════════════ */
+  function initPullToRefresh() {
+    let startY = 0;
+    let pulling = false;
+    const indicator = document.getElementById("ptr-indicator");
+    const ptrText   = document.getElementById("ptr-text");
+    const THRESHOLD = 80;
+
+    document.addEventListener("touchstart", e => {
+      if (window.scrollY === 0) { startY = e.touches[0].clientY; pulling = true; }
+    }, { passive: true });
+
+    document.addEventListener("touchmove", e => {
+      if (!pulling) return;
+      const dy = e.touches[0].clientY - startY;
+      if (dy <= 0) return;
+      const clamped = Math.min(dy, THRESHOLD + 20);
+      indicator.style.height = (clamped * 0.6) + "px";
+      ptrText.textContent = dy >= THRESHOLD ? "Release to refresh" : "Pull down to refresh";
+      indicator.classList.toggle("ptr-ready", dy >= THRESHOLD);
+    }, { passive: true });
+
+    document.addEventListener("touchend", e => {
+      if (!pulling) return;
+      pulling = false;
+      const dy = e.changedTouches[0].clientY - startY;
+      indicator.style.height = "0";
+      indicator.classList.remove("ptr-ready");
+      ptrText.textContent = "Pull down to refresh";
+      if (dy >= THRESHOLD) {
+        const q = document.getElementById("query").value.trim();
+        const l = document.getElementById("location").value.trim();
+        if (q && l) window.search();
+      }
+    });
+  }
 
   /* ══════════════════════════════════
      THEME
@@ -312,14 +464,11 @@
      CITY SELECTOR
   ══════════════════════════════════ */
   let activeCity = "Cape Town";
-  window.setCity = function(city) {
+  window.setCity = function(city, e) {
     activeCity = city;
     document.querySelectorAll(".city-pill").forEach(b => b.classList.remove("active"));
-    event.target.classList.add("active");
-    const loc = document.getElementById("location");
-    if (!loc.value || document.querySelectorAll(".city-pill.active").length) {
-      loc.value = city;
-    }
+    if (e && e.target) e.target.classList.add("active");
+    document.getElementById("location").value = city;
   };
 
   /* ══════════════════════════════════
@@ -399,6 +548,63 @@
   };
 
   /* ══════════════════════════════════
+     ADD RESTAURANT MODAL
+  ══════════════════════════════════ */
+  window.openAddRestaurant = function() {
+    document.getElementById("addRestModal").classList.add("open");
+    document.getElementById("ar-status").innerHTML = "";
+    document.getElementById("ar-submit").disabled = false;
+    document.getElementById("ar-submit").textContent = "🚀 Submit Restaurant";
+  };
+  window.closeAddRestaurant = function() {
+    document.getElementById("addRestModal").classList.remove("open");
+  };
+  // Close on overlay click
+  document.getElementById("addRestModal").addEventListener("click", function(e) {
+    if (e.target === this) closeAddRestaurant();
+  });
+
+  window.submitRestaurant = async function() {
+    const name    = document.getElementById("ar-name").value.trim();
+    const address = document.getElementById("ar-address").value.trim();
+    if (!name || !address) {
+      document.getElementById("ar-status").innerHTML = `<div style="color:var(--red);font-size:0.85rem;">⚠️ Name and address are required.</div>`;
+      return;
+    }
+    const btn = document.getElementById("ar-submit");
+    btn.disabled = true;
+    btn.textContent = "Submitting...";
+    document.getElementById("ar-status").innerHTML = "";
+    await waitForFirebase();
+    try {
+      await window._addDoc(window._collection(window._db, "submissions"), {
+        name,
+        address,
+        phone:    document.getElementById("ar-phone").value.trim()    || null,
+        facebook: document.getElementById("ar-facebook").value.trim() || null,
+        website:  document.getElementById("ar-website").value.trim()  || null,
+        cuisine:  document.getElementById("ar-cuisine").value         || null,
+        halaal:   document.getElementById("ar-halaal").value          || "unknown",
+        notes:    document.getElementById("ar-notes").value.trim()    || null,
+        submittedAt: window._serverTimestamp(),
+        status: "pending"
+      });
+      document.getElementById("ar-status").innerHTML = `<div class="modal-success">✅ Submitted! We'll review it soon. Thanks!</div>`;
+      btn.textContent = "✅ Submitted!";
+      // Clear fields
+      ["ar-name","ar-address","ar-phone","ar-facebook","ar-website","ar-notes"].forEach(id => document.getElementById(id).value = "");
+      document.getElementById("ar-cuisine").value = "";
+      document.getElementById("ar-halaal").value  = "unknown";
+      if (typeof confetti === "function") confetti({ particleCount: 80, spread: 60, origin: { y: 0.5 }, colors: ["#4ade80","#F47B20","#a855f7"] });
+      setTimeout(() => closeAddRestaurant(), 2800);
+    } catch(err) {
+      document.getElementById("ar-status").innerHTML = `<div style="color:var(--red);font-size:0.85rem;">❌ Submission failed. Please try again.</div>`;
+      btn.disabled = false;
+      btn.textContent = "🚀 Submit Restaurant";
+    }
+  };
+
+  /* ══════════════════════════════════
      SORT
   ══════════════════════════════════ */
   let allResults  = [];
@@ -416,7 +622,7 @@
   };
 
   /* ══════════════════════════════════
-     TRENDING THIS WEEK
+     TRENDING
   ══════════════════════════════════ */
   let trendingOpen = false;
   window.toggleTrending = async function() {
@@ -430,19 +636,14 @@
     btn.textContent       = trendingOpen ? "📈 Hide Trending" : "📈 Trending";
     if (trendingOpen) await loadTrending();
   };
-
   async function loadTrending() {
     const list = document.getElementById("trendingList");
     list.innerHTML = `<div style="color:var(--muted);font-size:0.85rem;"><span class="spinner"></span> Loading...</div>`;
     await waitForFirebase();
     try {
-      const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
       const snap = await window._getDocs(window._collection(window._db, "reactions"));
       const entries = [];
-      snap.forEach(docSnap => {
-        const d = docSnap.data();
-        entries.push({ id: docSnap.id, name: d.name || docSnap.id, fire: d.fire || 0, solid: d.solid || 0, skip: d.skip || 0, total: (d.fire || 0) + (d.solid || 0) });
-      });
+      snap.forEach(d => { const data = d.data(); entries.push({ id: d.id, name: data.name || d.id, fire: data.fire||0, solid: data.solid||0, skip: data.skip||0, total: (data.fire||0)+(data.solid||0) }); });
       entries.sort((a, b) => b.total - a.total);
       const top = entries.slice(0, 5);
       if (!top.length) { list.innerHTML = `<div style="color:var(--muted);font-size:0.85rem;">No trending data yet — start voting on restaurants!</div>`; return; }
@@ -497,7 +698,7 @@
     else { btn.style.background="var(--card)"; btn.style.color="var(--muted)"; btn.style.borderColor="var(--border)"; btn.textContent="🕌 Halaal Only"; }
     document.querySelectorAll(".card").forEach(card => {
       const v = card.querySelector(".halaal-verdict");
-      card.style.display = halaalOn ? (v && (v.textContent.includes("✅") || v.textContent.includes("Halaal ("))) ? "flex" : "none" : "flex";
+      card.style.display = halaalOn ? (v && (v.textContent.includes("✅"))) ? "flex" : "none" : "flex";
     });
   };
 
@@ -510,11 +711,11 @@
   async function loadHalaal(id) {
     await waitForFirebase();
     const snap = await window._getDoc(window._doc(window._db, "halaal", id));
-    return snap.exists() ? snap.data() : { yes:0,no:0,unsure:0 };
+    return snap.exists() ? snap.data() : { yes:0, no:0, unsure:0 };
   }
   async function voteHalaal(id, vote) {
     await waitForFirebase();
-    const ref = window._doc(window._db, "halaal", id);
+    const ref  = window._doc(window._db, "halaal", id);
     const snap = await window._getDoc(ref);
     if (snap.exists()) { await window._updateDoc(ref, { [vote]: window._increment(1) }); }
     else { const d={yes:0,no:0,unsure:0}; d[vote]=1; await window._setDoc(ref,d); }
@@ -523,19 +724,19 @@
   async function loadReactions(id) {
     await waitForFirebase();
     const snap = await window._getDoc(window._doc(window._db, "reactions", id));
-    return snap.exists() ? snap.data() : { fire:0,solid:0,skip:0 };
+    return snap.exists() ? snap.data() : { fire:0, solid:0, skip:0 };
   }
   async function saveReactionName(id, name) {
     await waitForFirebase();
     const ref  = window._doc(window._db, "reactions", id);
     const snap = await window._getDoc(ref);
-    if (!snap.exists()) { await window._setDoc(ref, { fire:0,solid:0,skip:0,name }); }
+    if (!snap.exists()) { await window._setDoc(ref, { fire:0, solid:0, skip:0, name }); }
     else if (!snap.data().name) { await window._updateDoc(ref, { name }); }
   }
   async function loadLiveTraffic(id) {
     await waitForFirebase();
     const snap = await window._getDoc(window._doc(window._db, "live_traffic", id));
-    return snap.exists() ? snap.data() : { quiet:0,moderate:0,packed:0 };
+    return snap.exists() ? snap.data() : { quiet:0, moderate:0, packed:0 };
   }
   window.submitLiveStatus = async function(id, type) {
     await waitForFirebase();
@@ -543,7 +744,7 @@
     const snap = await window._getDoc(ref);
     if (snap.exists()) { await window._updateDoc(ref, { [type]: window._increment(1) }); }
     else { const d={quiet:0,moderate:0,packed:0}; d[type]=1; await window._setDoc(ref,d); }
-    const u = await loadLiveTraffic(id);
+    const u  = await loadLiveTraffic(id);
     const el = document.getElementById(`live-verdict-${id}`);
     if (el) { const v=getLiveVerdict(u); el.textContent=v.text; el.style.color=v.color; }
   };
@@ -573,8 +774,8 @@
   function getLiveVerdict(d) {
     const t = d.quiet+d.moderate+d.packed;
     if (!t) return {text:"No live updates yet",color:"var(--muted)"};
-    if (d.quiet>d.moderate && d.quiet>d.packed)       return {text:`🟢 No Line (${d.quiet} reports)`,color:"var(--green)"};
-    if (d.moderate>d.quiet && d.moderate>d.packed)    return {text:`🟠 ~10min Wait (${d.moderate} reports)`,color:"var(--yellow)"};
+    if (d.quiet>d.moderate && d.quiet>d.packed)     return {text:`🟢 No Line (${d.quiet} reports)`,color:"var(--green)"};
+    if (d.moderate>d.quiet && d.moderate>d.packed)  return {text:`🟠 ~10min Wait (${d.moderate} reports)`,color:"var(--yellow)"};
     return {text:`🔴 Packed / 20m+ (${d.packed} reports)`,color:"var(--red)"};
   }
   function getBusyClass(b) { return b>=75?"busy-very":b>=50?"busy-fairly":b>=30?"busy-moderate":"busy-quiet"; }
@@ -583,6 +784,18 @@
     const busy=place.busy||0;
     let status = busy>=75?"🔴 Packed":busy>=50?"🟠 Moderately Busy":busy>=30?"🟡 Medium Line":"🟢 Quiet";
     return `https://wa.me/?text=${encodeURIComponent(`⚡ *Food Blip — Live Radar* ⚡\n\n🍔 *${place.name}*\n📍 ${place.address}\n\n🚦 *Status:* ${status}\n⭐ *Rating:* ${place.rating} (${place.reviews.toLocaleString()} reviews)\n🚗 ${place.distance} away · ${place.drive_time}\n\n👉 foodblip.vercel.app`)}`;
+  }
+
+  /* ── Build favicon chip for a restaurant ── */
+  function buildFaviconChip(name, address) {
+    const query    = encodeURIComponent(`${name} ${(address||"").split(",")[0].trim()}`);
+    const fbSearch = `https://www.facebook.com/search/top?q=${query}`;
+    // Google's favicon service gives us a real favicon from facebook.com
+    const faviconUrl = `https://www.google.com/s2/favicons?sz=32&domain=facebook.com`;
+    return `<a href="${fbSearch}" target="_blank" rel="noopener" class="favicon-chip" title="Search on Facebook">
+      <img src="${faviconUrl}" alt="Facebook" onerror="this.style.display='none'"/>
+      Facebook
+    </a>`;
   }
 
   /* ══════════════════════════════════
@@ -641,11 +854,13 @@
         const photoEl     = place.photo_url
           ? `<img class="card-photo" src="${place.photo_url}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'card-photo-placeholder\\'>🍽️</div>';" alt="${place.name}"/>`
           : `<div class="card-photo-placeholder">🍽️</div>`;
-        const peakBars    = (place.peak_hours||[]).map((b,h) =>
-          `<div title="${h}:00 — ${b}% busy" style="flex:1;height:${b}%;background:${b>=75?'#f87171':b>=50?'#f97316':b>=30?'#fbbf24':'#4ade80'};border-radius:2px;opacity:${h===new Date().getHours()?1:0.35};transition:opacity 0.2s;"></div>`
+        const peakBars = (place.peak_hours||[]).map((b,h) =>
+          `<div title="${h}:00 — ${b}% busy" style="flex:1;height:${b}%;background:${b>=75?'#f87171':b>=50?'#f97316':b>=30?'#fbbf24':'#4ade80'};border-radius:2px;opacity:${h===new Date().getHours()?1:0.35};"></div>`
         ).join('');
+        const faviconChip = buildFaviconChip(place.name, place.address);
         leaderboardData[place.place_id] = { name:place.name, rating:place.rating, fire:reactionData.fire, solid:reactionData.solid, skip:reactionData.skip };
         if (leaderboardOpen) renderLeaderboard();
+
         container.insertAdjacentHTML('beforeend', `
           <div class="card" id="card-${place.place_id}">
             <div class="photo-wrap">
@@ -657,13 +872,7 @@
               <div class="card-address">${place.address}</div>
               <div class="rating-row"><span class="stars">${stars}</span><strong>${place.rating}</strong><span class="review-count">(${place.reviews.toLocaleString()} reviews)</span></div>
               <div class="distance-row">📍 <span>${place.distance}</span> &nbsp;·&nbsp; 🚗 <span>${place.drive_time}</span></div>
-              <div class="tags">
-  ${openTag}
-  <a href="https://www.facebook.com/search/top?q=${encodeURIComponent(place.name + ' ' + (place.address.split(',')[0] || '').trim())}" target="_blank" style="display:inline-flex; align-items:center; gap:4px; background:#1877F2; border:1px solid #1877F2; border-radius:20px; padding:3px 11px; font-size:0.76rem; color:#fff; text-decoration:none; font-weight:700; transition:opacity 0.2s;" title="Find on Facebook">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-    Facebook
-  </a>
-</div>
+              <div class="tags">${openTag}${faviconChip}</div>
               <div class="crowd-live-card">
                 <div class="crowd-live-header"><span>⚡ LIVE CROWD STATUS</span><span id="live-verdict-${place.place_id}" style="color:${liveVerdict.color}">${liveVerdict.text}</span></div>
                 <div class="crowd-live-buttons">
@@ -701,10 +910,11 @@
               <a class="btn-route" href="${routeUrl}" target="_blank">🧭 Get Route</a>
             </div>
             <div style="padding:0 12px 12px;">
-              <a href="${waUrl}" target="_blank" style="display:block;text-align:center;background:#25D366;border-radius:10px;padding:9px;color:#fff;text-decoration:none;font-weight:700;font-size:0.82rem;font-family:'Syne',sans-serif;transition:opacity 0.2s;">📲 Share on WhatsApp</a>
+              <a href="${waUrl}" target="_blank" style="display:block;text-align:center;background:#25D366;border-radius:10px;padding:9px;color:#fff;text-decoration:none;font-weight:700;font-size:0.82rem;font-family:'Syne',sans-serif;">📲 Share on WhatsApp</a>
             </div>
           </div>`);
       }
+
       if (halaalOn) window.toggleHalaalFilter(), window.toggleHalaalFilter();
       setTimeout(() => {
         let hasTop = false;
